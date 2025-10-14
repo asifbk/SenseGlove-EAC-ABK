@@ -49,49 +49,52 @@ namespace SG.Examples
             //leftGlove.connectsTo = HandSide.LeftHand;
             ////leftHand.SetTrackingProvider(leftGlove);
             //throw new System.NotImplementedException();
-            leftHand.HandModelEnabled = false;
+           //eftHand.HandModelEnabled = false;
 
             //rightGlove.connectsTo = HandSide.RightHand;
             ////rightHand.SetTrackingProvider(rightGlove);
             //throw new System.NotImplementedException();
-            rightHand.HandModelEnabled = false;
+           //ightHand.HandModelEnabled = false;
         }
 
-        void Update()
-        {
-            if (this.ActiveHand == null)
+                    void Update()
             {
-                if (this.rightHand.IsConnected())
+                // Check and activate both hands independently
+                if (rightHand != null && rightHand.IsConnected())
                 {
-                    this.rightHand.HandModelEnabled = true;
-                    this.leftHand.gameObject.SetActive(false);
-                    Debug.Log("Connected to a right hand!");
-                    ActiveHand = this.rightHand;
-                    ActiveHandConnect.Invoke();
+                    if (!rightHand.HandModelEnabled)
+                    {
+                        rightHand.HandModelEnabled = true;
+                        Debug.Log("Right hand connected!");
+                    }
                 }
-                else if (this.leftHand.IsConnected())
+                else if (rightHand != null)
                 {
-                    this.leftHand.HandModelEnabled = true;
-                    this.rightHand.gameObject.SetActive(false);
-                    Debug.Log("Connected to a left hand!");
-                    ActiveHand = this.leftHand;
-                    ActiveHandConnect.Invoke();
+                    if (rightHand.HandModelEnabled)
+                    {
+                        rightHand.HandModelEnabled = false;
+                        Debug.Log("Right hand disconnected!");
+                    }
+                }
+
+                if (leftHand != null && leftHand.IsConnected())
+                {
+                    if (!leftHand.HandModelEnabled)
+                    {
+                        leftHand.HandModelEnabled = true;
+                        Debug.Log("Left hand connected!");
+                    }
+                }
+                else if (leftHand != null)
+                {
+                    if (leftHand.HandModelEnabled)
+                    {
+                        leftHand.HandModelEnabled = false;
+                        Debug.Log("Left hand disconnected!");
+                    }
                 }
             }
-            else
-            {
-                if (ActiveHand.RealHandSource == null || !ActiveHand.RealHandSource.IsConnected())
-                {
-                    //Disconnection
-                    Debug.Log(ActiveHand.name + " disconnected!");
-                    this.rightHand.HandModelEnabled = false;
-                    this.rightHand.gameObject.SetActive(true);
-                    this.leftHand.HandModelEnabled = false;
-                    this.leftHand.gameObject.SetActive(true);
-                    ActiveHandDisconnect.Invoke();
-                }
-            }
-        }
+
 
 
     }
