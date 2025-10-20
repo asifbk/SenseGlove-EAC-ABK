@@ -2,7 +2,7 @@
 
 namespace SG.Examples
 {
-    /// <summary> Selects one of two SG_TrackedHands based on which hand is connected first. </summary>
+    /// <summary> Selects two SG_TrackedHands </summary>
     public class SGEx_SelectHandModel : MonoBehaviour
     {
         public SG.Util.SGEvent ActiveHandConnect = new Util.SGEvent();

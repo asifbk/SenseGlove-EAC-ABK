@@ -68,10 +68,12 @@ namespace SG.Examples
 
             // Update title info
             string leftInfo = (leftHapticGlove != null && leftHapticGlove.IsConnected())
-                ? "Left: " + leftHapticGlove.GetDeviceID()
+                ? "Left: Connected (Left hand)"
+                //? "Left: " + leftHapticGlove.GetDeviceID()
                 : "Left: not connected";
             string rightInfo = (rightHapticGlove != null && rightHapticGlove.IsConnected())
-                ? "Right: " + rightHapticGlove.GetDeviceID()
+                ? "Right: Connected (Right hand)"
+                //? "Right: " + rightHapticGlove.GetDeviceID()
                 : "Right: not connected";
             titleText.text = $"{leftInfo} | {rightInfo}";
 
@@ -113,7 +115,7 @@ namespace SG.Examples
 
             glove.SendHaptics();
 
-            Debug.Log($"[{side} Glove] Sent FFB + Vibration | Wrist={wrist:F2}");
+            //Debug.Log($"[{side} Glove] Sent FFB + Vibration | Wrist={wrist:F2}");
         }
 
         //---------------------------------------------------------------------
