@@ -35,9 +35,9 @@ public class DualHandFlexionDisplay : MonoBehaviour
         if (hand.GetNormalizedFlexion(out float[] flexions) && flexions.Length >= 5)
         {
             string text = $"{handLabel} Hand Flexions:\n" +
-                          $"Thumb: {flexions[0]:F2}" +
+                          $"Thumb: {flexions[0]:F2}|" +
                           $"Index: {flexions[1]:F2}\n" +
-                          $"Middle: {flexions[2]:F2}" +
+                          $"Middle: {flexions[2]:F2}|" +
                           $"Ring: {flexions[3]:F2}\n" +
                           $"Pinky: {flexions[4]:F2}";
 

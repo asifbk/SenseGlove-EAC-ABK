@@ -4,119 +4,95 @@ using SG;
 public class FlexionBasedForceFeedback : MonoBehaviour
 {
     [Header("Hand References")]
-    public SG_TrackedHand leftHand;   // Assign Left SG_TrackedHand
-    public SG_TrackedHand rightHand;  // Assign Right SG_TrackedHand
-
-    [Header("Glove References")]
-    public SG_HapticGlove leftGlove;   // Assign Left SG_HapticGlove
-    public SG_HapticGlove rightGlove;  // Assign Right SG_HapticGlove
+    public SG_TrackedHand leftHand;
+    public SG_TrackedHand rightHand;
 
     [Header("Force Feedback Settings")]
     [Range(0f, 1f)]
-    public float flexionThresholdMin = 0.5f;  // Flexion value where FF starts
-    [Range(0f, 1f)]
-    public float flexionThresholdMax = 1.0f;  // Flexion value where FF is maximum
+    [Tooltip("Flexion threshold - force activates when flexion >= this value")]
+    public float flexionThreshold = 0.5f;
     
-    [Range(0f, 1f)]
-    public float minForceLevel = 0f;      // Minimum force feedback (0.0 - 1.0)
-    [Range(0f, 1f)]
-    public float maxForceLevel = 1f;      // Maximum force feedback (0.0 - 1.0)
+    [Range(0f, 100f)]
+    [Tooltip("Force level (0-100) to apply when threshold is reached")]
+    public float forceLevel = 100f;
 
-    [Header("Update Settings")]
-    public float updateInterval = 0.05f;
-    private float lastUpdateTime = 0f;
+    [Header("Status")]
+    public bool leftHandConnected = false;
+    public bool rightHandConnected = false;
 
-    // Arrays to store force levels for each finger (0.0 to 1.0)
-    private float[] leftForceLevels = new float[5];
-    private float[] rightForceLevels = new float[5];
+    private SG_HapticGlove leftGloveWrapper;
+    private SG_HapticGlove rightGloveWrapper;
+    
+    private SGCore.HapticGlove leftGlove;
+    private SGCore.HapticGlove rightGlove;
+
+    void Start()
+    {
+        if (leftHand != null)
+            leftGloveWrapper = leftHand.GetComponent<SG_HapticGlove>();
+        
+        if (rightHand != null)
+            rightGloveWrapper = rightHand.GetComponent<SG_HapticGlove>();
+    }
 
     void Update()
     {
-        if (Time.time - lastUpdateTime >= updateInterval)
-        {
-            if (leftHand != null && leftGlove != null)
-                UpdateForceFeedback(leftHand, leftGlove, leftForceLevels);
+        leftHandConnected = leftHand != null && leftHand.IsConnected();
+        rightHandConnected = rightHand != null && rightHand.IsConnected();
 
-            if (rightHand != null && rightGlove != null)
-                UpdateForceFeedback(rightHand, rightGlove, rightForceLevels);
+        // Get internal glove references
+        if (leftGlove == null && leftGloveWrapper != null && leftHandConnected)
+            leftGlove = (SGCore.HapticGlove)leftGloveWrapper.InternalGlove;
+            
+        if (rightGlove == null && rightGloveWrapper != null && rightHandConnected)
+            rightGlove = (SGCore.HapticGlove)rightGloveWrapper.InternalGlove;
 
-            lastUpdateTime = Time.time;
-        }
+        // Send force feedback every frame
+        HandleGloveFeedback(leftHand, leftGlove);
+        HandleGloveFeedback(rightHand, rightGlove);
     }
 
-    private void UpdateForceFeedback(SG_TrackedHand hand, SG_HapticGlove glove, float[] forceLevels)
+    void HandleGloveFeedback(SG_TrackedHand hand, SGCore.HapticGlove glove)
     {
+        if (glove == null || !glove.IsConnected()) return;
+        
         if (hand.GetNormalizedFlexion(out float[] flexions) && flexions.Length >= 5)
         {
-            // Calculate force feedback for each finger based on flexion
+            // Build FFB array (convert 0-100 to 0-1 like diagnostics does)
+            float[] ffb = new float[5];
             for (int i = 0; i < 5; i++)
             {
-                forceLevels[i] = CalculateForceLevel(flexions[i]);
+                // When flexion >= threshold, apply force, otherwise 0
+                if (flexions[i] >= flexionThreshold)
+                    ffb[i] = forceLevel / 100f;  // Convert to 0-1 range
+                else
+                    ffb[i] = 0f;
             }
 
-            // Send force feedback to the glove using the IHandFeedbackDevice interface
-            // QueueFFBCmd expects float[] with values from 0.0 to 1.0
-            glove.QueueFFBCmd(forceLevels);
+            // Queue and send (exactly like diagnostics script)
+            glove.QueueFFBLevels(ffb);
+            glove.SendHaptics();
         }
-    }
-
-    private float CalculateForceLevel(float flexionValue)
-    {
-        // Map flexion value to force feedback level (0.0 to 1.0)
-        if (flexionValue <= flexionThresholdMin)
-        {
-            return minForceLevel;
-        }
-        else if (flexionValue >= flexionThresholdMax)
-        {
-            return maxForceLevel;
-        }
-        else
-        {
-            // Linear interpolation between min and max
-            float normalizedFlex = (flexionValue - flexionThresholdMin) / 
-                                   (flexionThresholdMax - flexionThresholdMin);
-            
-            return Mathf.Lerp(minForceLevel, maxForceLevel, normalizedFlex);
-        }
-    }
-
-    // Manual control - set force for specific finger using the SGCore.Finger enum
-    public void SetForceForFinger(bool isLeftHand, SGCore.Finger finger, float forceLevel)
-    {
-        forceLevel = Mathf.Clamp01(forceLevel); // Ensure 0.0 to 1.0 range
-        
-        if (isLeftHand && leftGlove != null)
-        {
-            leftGlove.QueueFFBCmd(finger, forceLevel);
-        }
-        else if (!isLeftHand && rightGlove != null)
-        {
-            rightGlove.QueueFFBCmd(finger, forceLevel);
-        }
-    }
-
-    // Stop all force feedback
-    public void StopAllForceFeedback()
-    {
-        float[] zeroForces = new float[5] { 0f, 0f, 0f, 0f, 0f };
-        
-        if (leftGlove != null)
-            leftGlove.QueueFFBCmd(zeroForces);
-        
-        if (rightGlove != null)
-            rightGlove.QueueFFBCmd(zeroForces);
     }
 
     void OnDisable()
     {
-        // Stop force feedback when script is disabled
         StopAllForceFeedback();
     }
 
     void OnDestroy()
     {
-        // Stop force feedback when script is destroyed
         StopAllForceFeedback();
+    }
+
+    void OnApplicationQuit()
+    {
+        StopAllForceFeedback();
+    }
+
+    private void StopAllForceFeedback()
+    {
+        if (leftGlove != null) leftGlove.StopHaptics();
+        if (rightGlove != null) rightGlove.StopHaptics();
     }
 }
