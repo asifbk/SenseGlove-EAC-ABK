@@ -1,11 +1,4 @@
-#!/usr/bin/env python3
-# ---------------------------------------------------------
-# SenseGlove Assistant - ChatGPT-style GUI (Final, with full VSCode path)
-# ---------------------------------------------------------
-# - Cambria font everywhere
-# - Small SenseGlove logo beside title
-# - “Thinking…” disappears after reply
-# - Scrollbar fixed
+
 # - Opens scripts in VS Code using a full file path (no PATH needed)
 # ---------------------------------------------------------
 
@@ -19,13 +12,13 @@ OLLAMA_MODEL = "llama3.2"
 SHOW_TOP     = 3
 LOGO_FILE    = "senseglove_logo.png"
 
-# Your SenseGlove scripts folder
-SCRIPT_DIR   = r"C:\Users\mkarim1\Desktop\My Unity Projects\SenseGlove\SenseGlove-Unity-master\SenseGlove-Unity-master\SenseGlove\Scripts"
+# SenseGlove scripts folder
+SCRIPT_DIR   = r"C:\Users\mkarim1\Desktop\My Unity Projects\SenseGlove\SenseGlove-Unity-master\SenseGlove-Unity-master\SenseGlove\Scripts" #the path to the scripts directory
 
-# Your full VS Code executable path (no need for PATH variable)
-VSCODE_EXE   = r"C:\Users\mkarim1\AppData\Local\Programs\Microsoft VS Code\Code.exe"
+# full VS Code executable path (no need for PATH variable)
+VSCODE_EXE   = r"C:\Users\mkarim1\AppData\Local\Programs\Microsoft VS Code\Code.exe"  #the path to the VS Code executable
 
-# --- ChatGPT-like dark theme colors ---
+# dark theme colors ---
 BG_COLOR     = "#1E1E1E"
 USER_COLOR   = "#3A3F44"
 ASSIST_COLOR = "#2D3339"
@@ -55,7 +48,7 @@ def local_llm(prompt: str) -> str:
 def smart_search(query: str, data):
     context = "\n".join([f"{i+1}. {d['name']}: {d['description']}" for i,d in enumerate(data)])
     prompt = f"""
-You are a SenseGlove SDK expert. 
+You are a SenseGlove ✋ SDK expert. ✌️ 
 Here are the available scripts with their descriptions:
 {context}
 
@@ -154,7 +147,7 @@ class ChatGPTLikeUI:
         ).pack(side=tk.RIGHT, padx=10)
 
         # ---- Greeting ----
-        self.add_message("assistant", "Hello 👋 I’m your SenseGlove SDK Assistant.\nAsk anything about your Unity scripts!")
+        self.add_message("assistant", "Hello 👋 I’m your SenseGlove SDK Assistant.\nAsk anything about your Unity scripts!🤌")
 
         self.thinking_label = None
 
