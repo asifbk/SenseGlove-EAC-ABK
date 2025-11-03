@@ -14,38 +14,43 @@ public class DualGloveRotationDisplay : MonoBehaviour
 
     void Update()
     {
-        // Update left glove rotation
-        if (leftHand != null && leftHandText != null)
-        {
-            Quaternion leftRot = leftHand.transform.rotation;
-            Vector3 leftEuler = leftRot.eulerAngles;
+        UpdateHandDisplay(leftHand, leftHandText, "LEFT IMU");
+        UpdateHandDisplay(rightHand, rightHandText, "RIGHT IMU");
+    }
 
-            leftHandText.text =
-                $"<b><color=#00FFFF>LEFT IMU</color></b>\n" +
-                $"<size=20><color=#FFD700>X:</color> {leftEuler.x:F1}°\n" +
-                $"<color=#FFD700>Y:</color> {leftEuler.y:F1}°\n" +
-                $"<color=#FFD700>Z:</color> {leftEuler.z:F1}°</size>";
-        }
-        else if (leftHandText != null)
+    private void UpdateHandDisplay(SG_TrackedHand hand, TextMeshProUGUI text, string label)
+    {
+        if (hand == null || text == null)
         {
-            leftHandText.text = "<color=red>Left hand tracking unavailable</color>";
+            if (text != null)
+                text.text = $"<color=red>{label} tracking unavailable</color>";
+            return;
         }
 
-        // Update right glove rotation
-        if (rightHand != null && rightHandText != null)
-        {
-            Quaternion rightRot = rightHand.transform.rotation;
-            Vector3 rightEuler = rightRot.eulerAngles;
+        // ---------- IMU ROTATION ----------
+        Quaternion handRot = hand.transform.rotation;
+        Vector3 euler = handRot.eulerAngles;
 
-            rightHandText.text =
-                $"<b><color=#00FFFF>RIGHT IMU</color></b>\n" +
-                $"<size=20><color=#FFD700>X:</color> {rightEuler.x:F1}°\n" +
-                $"<color=#FFD700>Y:</color> {rightEuler.y:F1}°\n" +
-                $"<color=#FFD700>Z:</color> {rightEuler.z:F1}°</size>";
-        }
-        else if (rightHandText != null)
+        // ---------- THUMB ABDUCTION ----------
+        float abductionAngle = 0f;
+
+        // Retrieve current hand pose using RealHandPose
+        SG_HandPose pose = hand.GetHandPose(SG_TrackedHand.TrackingLevel.RealHandPose);
+
+        if (pose != null && pose.jointAngles != null && pose.jointAngles.Length > 0)
         {
-            rightHandText.text = "<color=red>Right hand tracking unavailable</color>";
+            // jointAngles[0][0].y → Thumb CMC abduction/adduction
+            abductionAngle = pose.jointAngles[0][0].y;
         }
+
+        // ---------- DISPLAY ----------
+        text.text =
+            $"<b><color=#00FFFF>{label}</color></b>\n" +
+            $"<size=15>" +
+            $"<color=#FFD700>X:</color> {euler.x:F1}°\n" +
+            $"<color=#FFD700>Y:</color> {euler.y:F1}°\n" +
+            $"<color=#FFD700>Z:</color> {euler.z:F1}°\n" +
+            $"<color=#00FF00>Thumb Abd:</color> {abductionAngle:F1}°" +
+            $"</size>";
     }
 }

@@ -158,7 +158,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: -14.9999695, y: -19.999985}
+  m_AnchoredPosition: {x: -15, y: -20}
   m_SizeDelta: {x: 250, y: -60}
   m_Pivot: {x: 0, y: 0.5}
 --- !u!114 &12397474
@@ -13872,8 +13872,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 10
-  m_fontSizeBase: 10
+  m_fontSize: 8
+  m_fontSizeBase: 8
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -14770,19 +14770,26 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   leftHand: {fileID: 601227426}
   rightHand: {fileID: 2040505206}
+  leftHandText: {fileID: 1829716965}
+  rightHandText: {fileID: 1489307617}
   enableManualControl: 0
   thumbEnabled: 1
-  thumbFlexionThreshold: 0.5
+  thumbFlexionThreshold: 0.6
   thumbForceLevel: 100
   indexEnabled: 1
-  indexFlexionThreshold: 0.5
+  indexFlexionThreshold: 0.68
   indexForceLevel: 100
   middleEnabled: 1
-  middleFlexionThreshold: 0.5
+  middleFlexionThreshold: 0.74
   middleForceLevel: 100
   ringEnabled: 1
-  ringFlexionThreshold: 0.5
+  ringFlexionThreshold: 0.66
   ringForceLevel: 100
+  pinkyEnabled: 1
+  pinkyFlexionThreshold: 0.5
+  pinkyForceLevel: 100
+  flexionTolerance: 0.1
+  updateInterval: 0.1
   leftHandConnected: 0
   rightHandConnected: 0
 --- !u!4 &1541771908
