@@ -1,13 +1,4 @@
-#!/usr/bin/env python3
-# ---------------------------------------------------------
-# SenseGlove Assistant v3.7 — Groq-Powered Code Generator
-# ---------------------------------------------------------
-# ✨ New Features:
-# 1. Uses Groq API (Llama 3.3 8B) for natural language + code generation
-# 2. Generate Unity C# or Python scripts from chat
-# 3. Save generated code via button
-# 4. All prior GUI + GitHub + watermark features retained
-# ---------------------------------------------------------
+
 
 import os
 import json
@@ -16,7 +7,7 @@ import requests
 import threading
 import tkinter as tk
 from tkinter import PhotoImage, Canvas, Scrollbar, filedialog, messagebox
-
+from config_manager import get_api_key
 import github_updater  # local module
 
 # ---------- CONFIG ----------
