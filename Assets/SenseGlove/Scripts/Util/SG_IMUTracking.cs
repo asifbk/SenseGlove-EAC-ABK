@@ -21,6 +21,19 @@ namespace SG.Util
 
 		public KeyCode calibrateIMUKey = KeyCode.None;
 
+		/// <summary>
+		/// An additional rotation (in degrees) that will always be applied on top of
+		/// the computed IMU rotation. Default is +90 degrees on the X axis.
+		/// You can change this in the inspector.
+		/// If <see cref="rotationOffsetIsWorldSpace"/> is true, the offset is applied
+		/// in world-space (pre-multiplied). Otherwise it is applied in local/object
+		/// space (post-multiplied) which is the default.
+		/// </summary>
+		public Vector3 rotationOffsetEuler = new Vector3(0f, -90f, 0f);
+
+		/// <summary> When true the rotation offset is applied in world-space: offset * baseRotation. </summary>
+		public bool rotationOffsetIsWorldSpace = true;
+
 		/// <summary> Calibrate the IMU to the relativeTO Transform </summary>
 		public void CalibrateIMU()
         {
@@ -43,14 +56,21 @@ namespace SG.Util
                 {
 					this.CalibrateIMU();
                 }
-				if (this.relativeTo != null)
-                {
-					this.transform.rotation = this.qCalibr * currIMU;
+				// Compute the base rotation (with calibration if needed)
+				Quaternion baseRotation = (this.relativeTo != null) ? (this.qCalibr * currIMU) : currIMU;
+
+				// Compute the offset quaternion from inspector Euler degrees
+				Quaternion offset = Quaternion.Euler(this.rotationOffsetEuler);
+
+				// Apply offset either in world-space (pre-multiply) or local/object-space (post-multiply)
+				if (this.rotationOffsetIsWorldSpace)
+				{
+					this.transform.rotation = offset * baseRotation;
 				}
 				else
-                {
-					this.transform.rotation = currIMU;
-                }
+				{
+					this.transform.rotation = baseRotation * offset;
+				}
 			}
 		}
 

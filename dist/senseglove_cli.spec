@@ -2,7 +2,7 @@
 
 
 a = Analysis(
-    ['C:\\Users\\mkarim1\\Desktop\\My Unity Projects\\SenseGlove\\senseglove_cli.py'],
+    ['C:\\Users\\mkarim1\\Desktop\\My Unity Projects\\SenseGlove\\dist\\senseglove_cli.py'],
     pathex=[],
     binaries=[],
     datas=[],
