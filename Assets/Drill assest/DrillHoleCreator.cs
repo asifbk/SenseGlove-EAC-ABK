@@ -2,68 +2,112 @@ using UnityEngine;
 
 public class DrillHoleCreator : MonoBehaviour
 {
-    [Header("Assign the prefab from Project (blue cube)")]
+    [Header("Hole Prefab Settings")]
+    [Tooltip("Assign the DrillHoleDecal prefab from your Project window.")]
     public GameObject holeDecalPrefab;
 
-    [Header("The tag on drillable surfaces")]
+    [Header("Surface Settings")]
+    [Tooltip("Tag of the object that can be drilled.")]
     public string woodTag = "Wood";
+    [Tooltip("Tag applied to the drill bit collider.")]
+    public string drillBitTag = "DrillBit";
 
-    [Header("Lift decal off surface to avoid z-fighting")]
-    [Range(0f, 0.01f)] public float surfaceOffset = 0.0005f;
+    [Header("Spawn Settings")]
+    [Tooltip("Small offset from the surface to avoid z-fighting.")]
+    [Range(0.0001f, 0.01f)] public float surfaceOffset = 0.0005f;
+    [Tooltip("Minimum time between hole spawns (in seconds).")]
+    public float spawnCooldown = 0.08f;
 
-    [Header("Debug logging")]
+    [Header("Particle & Sound")]
+    [Tooltip("Optional: Assign a ParticleSystem to emit dust while drilling.")]
+    public ParticleSystem drillParticles;
+    [Tooltip("Optional: Assign a looping AudioSource for drill sound.")]
+    public AudioSource drillAudio;
+
+    [Header("Debug Options")]
     public bool debugLogs = true;
 
-    void Start()
+    private float lastSpawnTime = -1f;
+    private bool isDrilling = false;
+
+    private void Start()
     {
         if (holeDecalPrefab == null)
-            Debug.LogError("[DrillHoleCreator] HoleDecalPrefab is not assigned.");
+            Debug.LogError("[DrillHoleCreator] ❌ Hole decal prefab not assigned in Inspector!");
+
+        if (debugLogs)
+            Debug.Log("[DrillHoleCreator] ✅ Initialized and waiting for drill contact...");
     }
 
-    void OnCollisionEnter(Collision collision)
+    private void OnCollisionStay(Collision collision)
     {
-        TrySpawnHole(collision);
-    }
+        // Cooldown check
+        if (Time.time - lastSpawnTime < spawnCooldown) return;
 
-    // Optional: allow multiple holes while pressing/spinning (rate-limited)
-    float lastSpawnTime = -1f;
-    public float spawnCooldown = 0.08f; // seconds between holes
-    void OnCollisionStay(Collision collision)
-    {
-        if (Time.time - lastSpawnTime >= spawnCooldown)
+        // Ensure surface is drillable
+        if (!collision.gameObject.CompareTag(woodTag)) return;
+
+        // Detect if the drill bit (not handle or body) is touching
+        bool bitTouched = false;
+        foreach (ContactPoint contact in collision.contacts)
         {
-            if (TrySpawnHole(collision)) lastSpawnTime = Time.time;
+            if (contact.thisCollider.CompareTag(drillBitTag))
+            {
+                bitTouched = true;
+                SpawnHole(contact);
+                break;
+            }
+        }
+
+        if (bitTouched)
+        {
+            lastSpawnTime = Time.time;
+            SetDrillingState(true);
         }
     }
 
-    bool TrySpawnHole(Collision collision)
+    private void OnCollisionExit(Collision collision)
     {
-        // Find a parent tagged Wood if the immediate collider isn't
-        Transform t = collision.collider.transform;
-        Transform tagged = null;
-        while (t != null)
+        if (collision.gameObject.CompareTag(woodTag))
+            SetDrillingState(false);
+    }
+
+    private void SpawnHole(ContactPoint contact)
+    {
+        Vector3 hitPoint = contact.point + contact.normal * surfaceOffset;
+        Quaternion rotation = Quaternion.LookRotation(contact.normal);
+
+        // Create or reuse parent container
+        GameObject parentObj = GameObject.Find("DrilledHoles");
+        if (parentObj == null)
+            parentObj = new GameObject("DrilledHoles");
+
+        GameObject hole = Instantiate(holeDecalPrefab, hitPoint, rotation, parentObj.transform);
+        hole.transform.Rotate(contact.normal, Random.Range(0f, 360f), Space.World);
+
+        if (debugLogs)
+            Debug.Log($"[DrillHoleCreator] 🕳️ Hole spawned on {contact.otherCollider.name} at {hitPoint}");
+    }
+
+    private void SetDrillingState(bool active)
+    {
+        if (active == isDrilling) return;
+        isDrilling = active;
+
+        if (drillParticles != null)
         {
-            if (t.CompareTag(woodTag)) { tagged = t; break; }
-            t = t.parent;
+            if (active && !drillParticles.isPlaying)
+                drillParticles.Play();
+            else if (!active && drillParticles.isPlaying)
+                drillParticles.Stop();
         }
-        if (tagged == null)
+
+        if (drillAudio != null)
         {
-            if (debugLogs) Debug.LogWarning(
-                $"[DrillHoleCreator] Surface tag didn’t match. Expected '{woodTag}' on {collision.collider.name}");
-            return false;
+            if (active && !drillAudio.isPlaying)
+                drillAudio.Play();
+            else if (!active && drillAudio.isPlaying)
+                drillAudio.Stop();
         }
-
-        ContactPoint cp = collision.contacts[0];
-        Vector3 pos = cp.point + cp.normal * surfaceOffset;
-
-        // Our prefab’s Z+ should face the normal → LookRotation(normal)
-        Quaternion rot = Quaternion.LookRotation(cp.normal);
-
-        var hole = Object.Instantiate(holeDecalPrefab, pos, rot);
-        hole.transform.SetParent(tagged, true);
-        hole.transform.Rotate(cp.normal, Random.Range(0f, 360f), Space.World); // small random twist
-
-        if (debugLogs) Debug.Log($"[DrillHoleCreator] Spawned hole on {tagged.name} at {pos}");
-        return true;
     }
 }

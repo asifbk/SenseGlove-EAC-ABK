@@ -8,6 +8,7 @@ TagManager:
   - FxTemporaire
   - Anchor
   - Wood
+  - DrillBit
   layers:
   - Default
   - TransparentFX
