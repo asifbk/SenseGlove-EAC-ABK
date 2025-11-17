@@ -1,166 +1,227 @@
-﻿using System.Collections;
-using System.Collections.Generic;
-using UnityEngine;
+﻿using UnityEngine;
+using SG;
+using SGCore;
 
-/// <summary>
-/// SenseGlove-based drill controller:
-/// - Reads finger flexion (trigger press)
-/// - Sends vibration feedback
-/// - Rotates drill head around a selectable local axis
-/// - Optional slowdown & vibration when touching a wood surface
-/// - Optional sound and dust particle effects
-/// </summary>
-public class SG_TriggerDrillLogic : MonoBehaviour
+public class SG_TriggerLogic : MonoBehaviour
 {
-    // ------------------- ENUMS -------------------
+    // ---------------- ENUMS -----------------
 
-    /// <summary>
-    /// Allows rotation around a selectable local axis.
-    /// </summary>
     public enum RotationAxis
     {
-        X,
-        Y,
-        Z
+        X, Y, Z
     }
 
-    // ------------------- SENSEGLOVE SETTINGS -------------------
+    public enum DrillAxis
+    {
+        Forward,
+        Backward,
+        Up,
+        Down,
+        Right,
+        Left
+    }
+
+    // --------------- REFERENCES -----------------
 
     [Header("SenseGlove Settings")]
-    [Tooltip("The SG_Grabable component attached to the drill handle.")]
-    public SG.SG_Grabable grabable;
+    public SG_Grabable grabable;
+    public Finger respondsTo = Finger.Index;
+    public VibrationLocation vibrationLocation = VibrationLocation.WholeHand;
 
-    [Tooltip("Which finger controls the trigger (default: Index).")]
-    public SGCore.Finger respondsTo = SGCore.Finger.Index;
+    [Header("Flexion Settings")]
+    [Range(0, 1)] public float startFlexion = 0.2f;
+    [Range(0, 1)] public float endFlexion = 0.8f;
 
-    [Tooltip("Where vibration is applied (WholeHand recommended).")]
-    public SG.VibrationLocation vibrationLocation = SG.VibrationLocation.WholeHand;
+    private float latestPressure = 0f;
+    private float lastCmdSent = 0f;
+    private const float sendCooldown = 0.12f;
 
-    [Header("Flexion Mapping")]
-    [Range(0, 1)] public float startFlexion = 0.2f;  // When finger starts to flex
-    [Range(0, 1)] public float endFlexion = 0.8f;    // When trigger is fully pressed
-
-    private float latestPressure = 0.0f;
-    private float lastCmdSent = 0.0f;
-    public const float sendCooldown = 0.1f;
-
-    // ------------------- DRILL ROTATION SETTINGS -------------------
+    // ---------------- ROTATION -----------------
 
     [Header("Drill Rotation Settings")]
-    [Tooltip("Assign the rotating head transform here.")]
     public Transform rotatingHead;
-
-    [Tooltip("Select which local axis to rotate around.")]
     public RotationAxis rotationAxis = RotationAxis.X;
-
-    [Tooltip("Max spin speed in degrees per second at full trigger press.")]
     public float maxRotationSpeed = 1200f;
-
-    [Tooltip("How much the drill slows down when in contact with wood.")]
-    [Range(0.1f, 1f)] public float resistanceFactor = 0.4f;
+    public float resistanceFactor = 0.4f;
 
     private float currentRotationSpeed = 0f;
     private bool isTouchingWood = false;
 
-    // ------------------- SOUND & PARTICLE EFFECTS -------------------
+    // ---------------- CARVING / RAYCAST -----------------
 
-    [Header("Optional Sound & Effects")]
-    [Tooltip("Looping drill sound that adjusts with trigger pressure.")]
+    [Header("Carving Settings")]
+    public Transform drillTip;
+    public DrillAxis drillDirection = DrillAxis.Forward;
+    public float rayDistance = 0.25f;
+    public LayerMask carvableLayer; // What can be carved
+    
+    [Header("Mesh Deformation Settings")]
+    public float drillRadius = 0.3f;           // Size of the hole
+    public float carveSpeed = 3f;              // How fast it carves
+    public float deformCooldown = 0.02f;       // Reduced for smoother carving
+    private float lastDeformTime = 0f;
+
+    // ---------------- SOUND & PARTICLES -----------------
+
+    [Header("Sound & Effects")]
     public AudioSource drillSound;
-
-    [Tooltip("Optional dust particle system when drilling wood.")]
     public ParticleSystem woodDustParticles;
-
-    [Tooltip("Tag used for wooden surfaces.")]
     public string woodTag = "Wood";
 
-    // ------------------- PROPERTY -------------------
-
-    public float TriggerPressure => grabable != null && grabable.IsGrabbed() ? latestPressure : 0.0f;
-
-    // ------------------- UNITY UPDATE -------------------
+    // ----------------- UPDATE LOOP ----------------------
 
     void Update()
     {
-        // Only run while drill is held
         if (grabable == null || !grabable.IsGrabbed())
             return;
 
-        SG.SG_TrackedHand firstHand = grabable.ScriptsGrabbingMe()[0].TrackedHand;
-
-        // --- 1. READ FLEXION VALUE ---
-        float[] flexions;
-        if (firstHand.GetNormalizedFlexion(out flexions))
-        {
-            float currFlex = flexions[(int)this.respondsTo];
-
-            if (startFlexion == endFlexion)
-                latestPressure = currFlex >= startFlexion ? 1.0f : 0.0f;
-            else
-                latestPressure = SG.Util.SG_Util.Map(currFlex, startFlexion, endFlexion, 0.0f, 1.0f, true);
-        }
-
-        // --- 2. SEND HAPTIC FEEDBACK ---
-        int amplitude = Mathf.RoundToInt(100.0f * latestPressure);
-        float time = Time.timeSinceLevelLoad;
-
-        if (amplitude > 0 && time - lastCmdSent >= sendCooldown)
-        {
-            lastCmdSent = time;
-            grabable.SendVibrationCmd(vibrationLocation, amplitude, 0.1f, 170.0f);
-            grabable.QueueFFBCmd(SGCore.Finger.Index, latestPressure);
-        }
-
-        // --- 3. ROTATION ---
-        if (rotatingHead != null)
-        {
-            // Base rotation speed (affected by trigger pressure)
-            float targetSpeed = Mathf.Lerp(0, maxRotationSpeed, latestPressure);
-
-            // Apply slowdown if touching wood
-            if (isTouchingWood)
-                targetSpeed *= resistanceFactor;
-
-            // Smooth transition
-            currentRotationSpeed = Mathf.Lerp(currentRotationSpeed, targetSpeed, 8f * Time.deltaTime);
-
-            // Determine axis
-            Vector3 localAxis = Vector3.right; // Default X
-            switch (rotationAxis)
-            {
-                case RotationAxis.Y:
-                    localAxis = Vector3.up;
-                    break;
-                case RotationAxis.Z:
-                    localAxis = Vector3.forward;
-                    break;
-            }
-
-            // Perform rotation around selected axis in local space
-            rotatingHead.Rotate(localAxis * currentRotationSpeed * Time.deltaTime, Space.Self);
-        }
-
-        // --- 4. SOUND & DUST ---
+        UpdateTriggerPressure();
+        HandleRotation();
+        HandleCarving();
         HandleAudio();
         HandleParticles();
     }
 
-    // ------------------- AUDIO -------------------
+    // ---------------------------------------------------------
+    //                     FLEXION → PRESSURE
+    // ---------------------------------------------------------
+
+    private void UpdateTriggerPressure()
+    {
+        SG_TrackedHand hand = grabable.ScriptsGrabbingMe()[0].TrackedHand;
+        float[] flexions;
+
+        if (hand.GetNormalizedFlexion(out flexions))
+        {
+            float currFlex = flexions[(int)respondsTo];
+            latestPressure = Mathf.InverseLerp(startFlexion, endFlexion, currFlex);
+        }
+
+        // Haptics
+        if (latestPressure > 0.05f && Time.time - lastCmdSent >= sendCooldown)
+        {
+            lastCmdSent = Time.time;
+            int amp = Mathf.RoundToInt(latestPressure * 100);
+            grabable.SendVibrationCmd(vibrationLocation, amp, 0.1f, 170f);
+            grabable.QueueFFBCmd(Finger.Index, latestPressure);
+        }
+    }
+
+    // ---------------------------------------------------------
+    //                       ROTATION
+    // ---------------------------------------------------------
+
+    private void HandleRotation()
+    {
+        if (rotatingHead == null) return;
+
+        float targetSpeed = Mathf.Lerp(0f, maxRotationSpeed, latestPressure);
+        if (isTouchingWood) targetSpeed *= resistanceFactor;
+
+        currentRotationSpeed = Mathf.Lerp(currentRotationSpeed, targetSpeed, 8f * Time.deltaTime);
+
+        Vector3 axis = rotationAxis == RotationAxis.X ? Vector3.right :
+                       rotationAxis == RotationAxis.Y ? Vector3.up :
+                       Vector3.forward;
+
+        rotatingHead.Rotate(axis * currentRotationSpeed * Time.deltaTime, Space.Self);
+    }
+
+    // ---------------------------------------------------------
+    //                 RAYCAST CARVING (UPDATED)
+    // ---------------------------------------------------------
+
+    private Vector3 GetDrillDirection()
+    {
+        switch (drillDirection)
+        {
+            case DrillAxis.Forward:  return drillTip.forward;
+            case DrillAxis.Backward: return -drillTip.forward;
+            case DrillAxis.Up:       return drillTip.up;
+            case DrillAxis.Down:     return -drillTip.up;
+            case DrillAxis.Right:    return drillTip.right;
+            case DrillAxis.Left:     return -drillTip.right;
+        }
+        return drillTip.forward;
+    }
+
+    private void HandleCarving()
+    {
+        if (drillTip == null)
+        {
+            Debug.LogError("❌ Drill Tip is NULL!");
+            return;
+        }
+        
+        Debug.Log($"⚡ Pressure: {latestPressure}");
+        
+        if (latestPressure < 0.1f) // REDUCED from 0.2 to 0.1
+        {
+            Debug.Log("⚠️ Pressure too low to carve");
+            return;
+        }
+
+        Vector3 origin = drillTip.position;
+        Vector3 dir = GetDrillDirection();
+
+        Debug.DrawRay(origin, dir * rayDistance, Color.red, 1f);
+        Debug.Log($"🎯 Raycasting from {origin} in direction {dir}, distance {rayDistance}");
+
+        // Use layer mask if set, otherwise raycast everything
+        bool didHit = carvableLayer.value != 0 
+            ? Physics.Raycast(origin, dir, out RaycastHit hit, rayDistance, carvableLayer)
+            : Physics.Raycast(origin, dir, out hit, rayDistance);
+
+        if (didHit)
+        {
+            Debug.Log($"✅ HIT: {hit.collider.name} at {hit.point}");
+            
+            ExistingModelCarving carvable = hit.collider.GetComponent<ExistingModelCarving>();
+            
+            if (carvable != null)
+            {
+                Debug.Log("✅ Found ExistingModelCarving component!");
+                
+                if (Time.time - lastDeformTime >= deformCooldown)
+                {
+                    lastDeformTime = Time.time;
+                    float pressureMultiplier = Mathf.Lerp(0.3f, 1f, latestPressure);
+                    
+                    Debug.Log($"🔨 CARVING! Radius:{drillRadius}, Speed:{carveSpeed * pressureMultiplier}");
+                    carvable.CarveAtPosition(hit.point, drillRadius, carveSpeed * pressureMultiplier);
+                    
+                    isTouchingWood = true;
+                }
+            }
+            else
+            {
+                Debug.LogWarning($"❌ No ExistingModelCarving on {hit.collider.name}");
+                isTouchingWood = false;
+            }
+        }
+        else
+        {
+            Debug.Log("❌ Raycast missed - no hit");
+            isTouchingWood = false;
+        }
+    }
+
+    // ---------------------------------------------------------
+    //              SOUND + PARTICLES
+    // ---------------------------------------------------------
 
     private void HandleAudio()
     {
         if (drillSound == null) return;
 
-        if (latestPressure > 0.05f && !drillSound.isPlaying)
+        if (latestPressure > 0.1f && !drillSound.isPlaying)
             drillSound.Play();
-        else if (latestPressure <= 0.05f && drillSound.isPlaying)
+        else if (latestPressure <= 0.1f && drillSound.isPlaying)
             drillSound.Stop();
 
         drillSound.pitch = Mathf.Lerp(0.8f, 1.5f, latestPressure);
         drillSound.volume = Mathf.Lerp(0.1f, 1.0f, latestPressure);
     }
-
-    // ------------------- PARTICLE EFFECT -------------------
 
     private void HandleParticles()
     {
@@ -168,32 +229,30 @@ public class SG_TriggerDrillLogic : MonoBehaviour
 
         if (isTouchingWood && latestPressure > 0.3f)
         {
-            if (!woodDustParticles.isPlaying)
-                woodDustParticles.Play();
+            if (!woodDustParticles.isPlaying) woodDustParticles.Play();
         }
-        else if (woodDustParticles.isPlaying)
+        else
         {
-            woodDustParticles.Stop();
+            if (woodDustParticles.isPlaying) woodDustParticles.Stop();
         }
     }
 
-    // ------------------- COLLISION HANDLING -------------------
+    // ---------------------------------------------------------
+    //                      COLLISION TAG CHECK
+    // ---------------------------------------------------------
 
     private void OnCollisionEnter(Collision collision)
     {
-        if (collision.gameObject.CompareTag(woodTag))
-            isTouchingWood = true;
+        if (collision.gameObject.CompareTag(woodTag)) isTouchingWood = true;
     }
 
     private void OnCollisionStay(Collision collision)
     {
-        if (collision.gameObject.CompareTag(woodTag))
-            isTouchingWood = true;
+        if (collision.gameObject.CompareTag(woodTag)) isTouchingWood = true;
     }
 
     private void OnCollisionExit(Collision collision)
     {
-        if (collision.gameObject.CompareTag(woodTag))
-            isTouchingWood = false;
+        if (collision.gameObject.CompareTag(woodTag)) isTouchingWood = false;
     }
 }
