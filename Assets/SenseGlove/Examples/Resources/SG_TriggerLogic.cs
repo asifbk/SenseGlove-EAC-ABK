@@ -1,6 +1,7 @@
 ﻿using UnityEngine;
 using SG;
 using SGCore;
+using System.Linq;
 
 public class SG_TriggerLogic : MonoBehaviour
 {
@@ -51,14 +52,17 @@ public class SG_TriggerLogic : MonoBehaviour
 
     [Header("Carving Settings")]
     public Transform drillTip;
-    public DrillAxis drillDirection = DrillAxis.Forward;
-    public float rayDistance = 0.25f;
-    public LayerMask carvableLayer; // What can be carved
-    
+    public bool autoFindActiveDrillBit = true;
+    public DrillAxis drillDirection = DrillAxis.Down;
+    public float rayDistance = 1.0f;
+    public float rayOffset = 0.1f;
+    public LayerMask carvableLayer;
+
     [Header("Mesh Deformation Settings")]
-    public float drillRadius = 0.3f;           // Size of the hole
-    public float carveSpeed = 3f;              // How fast it carves
-    public float deformCooldown = 0.02f;       // Reduced for smoother carving
+    public float drillRadius = 0.3f;
+    public bool autoDetectDrillSize = true;
+    public float carveSpeed = 3f;
+    public float deformCooldown = 0.02f;
     private float lastDeformTime = 0f;
 
     // ---------------- SOUND & PARTICLES -----------------
@@ -70,16 +74,149 @@ public class SG_TriggerLogic : MonoBehaviour
 
     // ----------------- UPDATE LOOP ----------------------
 
+    void Start()
+    {
+        if (autoDetectDrillSize && drillTip != null)
+        {
+            DetectDrillSize();
+        }
+    }
+
     void Update()
     {
         if (grabable == null || !grabable.IsGrabbed())
             return;
+
+        if (autoFindActiveDrillBit)
+        {
+            FindActiveDrillBit();
+        }
 
         UpdateTriggerPressure();
         HandleRotation();
         HandleCarving();
         HandleAudio();
         HandleParticles();
+    }
+
+    // ---------------------------------------------------------
+    //       🔥 FIX: UNIVERSAL DRILL BIT FINDER (works for all)
+    // ---------------------------------------------------------
+
+    private Transform FindDeepChildContains(Transform parent, string text)
+    {
+        text = text.ToLower();
+        foreach (Transform child in parent)
+        {
+            if (child.name.ToLower().Contains(text))
+                return child;
+
+            Transform found = FindDeepChildContains(child, text);
+            if (found != null)
+                return found;
+        }
+        return null;
+    }
+
+    private void FindActiveDrillBit()
+    {
+        // 1️⃣ Step: Look inside drill model first
+        Transform drillHolder = FindDeepChildContains(transform, "drill holder");
+        if (drillHolder == null)
+            drillHolder = FindDeepChildContains(transform, "holder");
+
+        if (drillHolder != null)
+        {
+            foreach (Transform child in drillHolder)
+            {
+                string n = child.name.ToLower();
+
+                if (child.gameObject.activeInHierarchy &&
+                    n.Contains("drill"))
+                {
+                    if (drillTip != child)
+                    {
+                        drillTip = child;
+
+#if UNITY_EDITOR
+                        UnityEditor.EditorUtility.SetDirty(this);
+#endif
+
+                        Debug.Log("✓ Switched to INTERNAL drill bit: " + child.name);
+
+                        if (autoDetectDrillSize)
+                            DetectDrillSize();
+                    }
+                    return;
+                }
+            }
+        }
+
+        // 2️⃣ Step: SEARCH SCENE drill bits (3mm, 5mm, 8mm, 10mm)
+        GameObject[] sceneBits = GameObject.FindObjectsOfType<GameObject>()
+            .Where(go =>
+                go.activeInHierarchy &&
+                go.name.ToLower().Contains("drill") &&
+                go.name.ToLower().Contains("bit"))
+            .ToArray();
+
+        foreach (GameObject bit in sceneBits)
+        {
+            if (drillTip != bit.transform)
+            {
+                drillTip = bit.transform;
+
+#if UNITY_EDITOR
+                UnityEditor.EditorUtility.SetDirty(this);
+#endif
+
+                Debug.Log("✓ Switched to SCENE drill bit: " + bit.name);
+
+                if (autoDetectDrillSize)
+                    DetectDrillSize();
+            }
+            return;
+        }
+    }
+
+    // ---------------------------------------------------------
+    //                 AUTO-DETECT DRILL SIZE
+    // ---------------------------------------------------------
+
+    private void DetectDrillSize()
+    {
+        Collider col = drillTip.GetComponent<Collider>();
+        if (col != null)
+        {
+            if (col is CapsuleCollider capsule)
+            {
+                drillRadius = capsule.radius * Mathf.Max(drillTip.lossyScale.x, drillTip.lossyScale.z);
+            }
+            else if (col is SphereCollider sphere)
+            {
+                drillRadius = sphere.radius * Mathf.Max(drillTip.lossyScale.x, drillTip.lossyScale.z);
+            }
+            else if (col is BoxCollider box)
+            {
+                drillRadius = Mathf.Max(box.size.x * drillTip.lossyScale.x, box.size.z * drillTip.lossyScale.z) / 2f;
+            }
+            else
+            {
+                drillRadius = Mathf.Max(col.bounds.extents.x, col.bounds.extents.z);
+            }
+        }
+        else
+        {
+            MeshFilter mf = drillTip.GetComponent<MeshFilter>();
+            if (mf != null && mf.sharedMesh != null)
+            {
+                Bounds b = mf.sharedMesh.bounds;
+                drillRadius = Mathf.Max(
+                    b.extents.x * drillTip.lossyScale.x,
+                    b.extents.z * drillTip.lossyScale.z
+                );
+            }
+        }
     }
 
     // ---------------------------------------------------------
@@ -97,7 +234,6 @@ public class SG_TriggerLogic : MonoBehaviour
             latestPressure = Mathf.InverseLerp(startFlexion, endFlexion, currFlex);
         }
 
-        // Haptics
         if (latestPressure > 0.05f && Time.time - lastCmdSent >= sendCooldown)
         {
             lastCmdSent = Time.time;
@@ -128,7 +264,7 @@ public class SG_TriggerLogic : MonoBehaviour
     }
 
     // ---------------------------------------------------------
-    //                 RAYCAST CARVING (UPDATED)
+    //                 RAYCAST CARVING
     // ---------------------------------------------------------
 
     private Vector3 GetDrillDirection()
@@ -148,60 +284,45 @@ public class SG_TriggerLogic : MonoBehaviour
     private void HandleCarving()
     {
         if (drillTip == null)
-        {
-            Debug.LogError("❌ Drill Tip is NULL!");
             return;
-        }
-        
-        Debug.Log($"⚡ Pressure: {latestPressure}");
-        
-        if (latestPressure < 0.1f) // REDUCED from 0.2 to 0.1
-        {
-            Debug.Log("⚠️ Pressure too low to carve");
-            return;
-        }
 
-        Vector3 origin = drillTip.position;
+        if (latestPressure < 0.1f)
+            return;
+
         Vector3 dir = GetDrillDirection();
+        Vector3 origin = drillTip.position + (dir * rayOffset);
 
-        Debug.DrawRay(origin, dir * rayDistance, Color.red, 1f);
-        Debug.Log($"🎯 Raycasting from {origin} in direction {dir}, distance {rayDistance}");
+        Debug.DrawRay(origin, dir * rayDistance, Color.red, 0.5f);
 
-        // Use layer mask if set, otherwise raycast everything
-        bool didHit = carvableLayer.value != 0 
-            ? Physics.Raycast(origin, dir, out RaycastHit hit, rayDistance, carvableLayer)
-            : Physics.Raycast(origin, dir, out hit, rayDistance);
+        RaycastHit hit;
+        bool didHit = carvableLayer.value != 0 ?
+            Physics.Raycast(origin, dir, out hit, rayDistance, carvableLayer) :
+            Physics.Raycast(origin, dir, out hit, rayDistance);
+
+        if (didHit && hit.collider.transform.IsChildOf(transform))
+            return;
 
         if (didHit)
         {
-            Debug.Log($"✅ HIT: {hit.collider.name} at {hit.point}");
-            
             ExistingModelCarving carvable = hit.collider.GetComponent<ExistingModelCarving>();
-            
+
             if (carvable != null)
             {
-                Debug.Log("✅ Found ExistingModelCarving component!");
-                
                 if (Time.time - lastDeformTime >= deformCooldown)
                 {
                     lastDeformTime = Time.time;
                     float pressureMultiplier = Mathf.Lerp(0.3f, 1f, latestPressure);
-                    
-                    Debug.Log($"🔨 CARVING! Radius:{drillRadius}, Speed:{carveSpeed * pressureMultiplier}");
                     carvable.CarveAtPosition(hit.point, drillRadius, carveSpeed * pressureMultiplier);
-                    
                     isTouchingWood = true;
                 }
             }
             else
             {
-                Debug.LogWarning($"❌ No ExistingModelCarving on {hit.collider.name}");
                 isTouchingWood = false;
             }
         }
         else
         {
-            Debug.Log("❌ Raycast missed - no hit");
             isTouchingWood = false;
         }
     }
