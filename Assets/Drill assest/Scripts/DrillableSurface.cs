@@ -8,18 +8,31 @@ public class ExistingModelCarving : MonoBehaviour
     private MeshCollider meshCollider;
     
     [Header("Carving Settings")]
-    public float carveRadius = 0.3f;
+    public float carveRadius = 0.3f;      // kept for compatibility, but now auto-calculated
     public float carveSpeed = 3f;
-    public float carveSmoothness = 1.5f;
+    public float carveSmoothness = 1.5f;  
     public float minVertexHeight = -2f;
     
     [Header("Mesh Subdivision (Recommended)")]
     public bool subdivideOnStart = true;
     public int subdivisionIterations = 2;
-    
+
+    // *** NEW *** — drill bit reference (set by SG_TriggerLogic)
+    public Transform drillBit;
+
+    // *** NEW *** — cached drill collider
+    private CapsuleCollider drillCollider;
+
     void Start()
     {
         InitializeMesh();
+    }
+
+    // *** NEW *** — this will be called by SG_TriggerLogic
+    public void SetDrillBit(Transform bit)
+    {
+        drillBit = bit;
+        drillCollider = drillBit.GetComponent<CapsuleCollider>();
     }
     
     void InitializeMesh()
@@ -31,12 +44,10 @@ public class ExistingModelCarving : MonoBehaviour
             return;
         }
         
-        // Create a copy of the original mesh
         mesh = Instantiate(meshFilter.sharedMesh);
         mesh.name = "Carvable " + meshFilter.sharedMesh.name;
         meshFilter.mesh = mesh;
         
-        // Subdivide for smoother carving
         if (subdivideOnStart)
         {
             Debug.Log($"Subdividing mesh {subdivisionIterations} times...");
@@ -47,52 +58,79 @@ public class ExistingModelCarving : MonoBehaviour
             meshFilter.mesh = mesh;
         }
         
-        // Store vertices
         originalVertices = mesh.vertices;
         modifiedVertices = mesh.vertices;
         
-        // Setup collider
         meshCollider = GetComponent<MeshCollider>();
         if (meshCollider == null)
             meshCollider = gameObject.AddComponent<MeshCollider>();
         meshCollider.sharedMesh = mesh;
-        
+
         Debug.Log($"✓ Mesh initialized with {modifiedVertices.Length} vertices");
     }
     
-    public void CarveAtPosition(Vector3 worldPosition, float drillRadius, float depth)
+    // -------------------------------------------------------
+    // *** UPDATED *** CYLINDRICAL DRILLING WITH AUTO DEPTH & RADIUS
+    // -------------------------------------------------------
+    public void CarveAtPosition(Vector3 worldPosition, float drillRadiusIgnored, float depthIgnored)
     {
         if (mesh == null || modifiedVertices == null) return;
-        
+
+        // *** NEW *** must have drill bit reference
+        if (drillBit == null || drillCollider == null)
+            return;
+
+        // Convert hit to local table coordinates
         Vector3 localPoint = transform.InverseTransformPoint(worldPosition);
         bool meshChanged = false;
+
+        // *** NEW *** auto radius from capsule collider
+        float drillRadius = drillCollider.radius * drillBit.lossyScale.x;
+
+        // *** NEW *** auto depth from drill bit tip
+        float drillTipY_world = drillBit.position.y;
+        float surfaceY_world = worldPosition.y;
+        float depth = Mathf.Abs(surfaceY_world - drillTipY_world);
+
+        // Cylinder parameters
+        float innerRadius = drillRadius * 0.85f;
+        float outerRadius = drillRadius;
         
         for (int i = 0; i < modifiedVertices.Length; i++)
         {
-            // Calculate 2D distance (XZ plane)
             float dx = modifiedVertices[i].x - localPoint.x;
             float dz = modifiedVertices[i].z - localPoint.z;
-            float distance = Mathf.Sqrt(dx * dx + dz * dz);
-            
-            if (distance < drillRadius)
+            float dist = Mathf.Sqrt(dx * dx + dz * dz);
+
+            // *** NEW *** cylinder bottom
+            if (dist < innerRadius)
             {
-                // Smooth falloff
-                float influence = 1f - (distance / drillRadius);
-                influence = Mathf.Pow(influence, carveSmoothness);
-                
-                // Target height
-                float targetY = localPoint.y - 0.05f;
-                
-                // Only carve if vertex is above target
-                if (modifiedVertices[i].y > targetY && modifiedVertices[i].y > minVertexHeight)
+                float targetY = localPoint.y - depth;
+
+                if (modifiedVertices[i].y > minVertexHeight)
                 {
-                    float carveAmount = depth * influence * Time.deltaTime;
-                    modifiedVertices[i].y = Mathf.Max(
-                        modifiedVertices[i].y - carveAmount,
-                        Mathf.Max(targetY, minVertexHeight)
+                    modifiedVertices[i].y = Mathf.Lerp(
+                        modifiedVertices[i].y,
+                        targetY,
+                        carveSpeed * Time.deltaTime
                     );
-                    meshChanged = true;
                 }
+
+                meshChanged = true;
+            }
+            // *** NEW *** smooth ring
+            else if (dist < outerRadius)
+            {
+                float t = (dist - innerRadius) / (outerRadius - innerRadius);
+                float smoothTargetY = Mathf.Lerp(localPoint.y - depth, modifiedVertices[i].y, t);
+
+                modifiedVertices[i].y = Mathf.Lerp(
+                    modifiedVertices[i].y,
+                    smoothTargetY,
+                    carveSpeed * Time.deltaTime
+                );
+
+                meshChanged = true;
             }
         }
         
@@ -102,7 +140,6 @@ public class ExistingModelCarving : MonoBehaviour
             mesh.RecalculateNormals();
             mesh.RecalculateBounds();
             
-            // Update collider periodically
             if (Time.frameCount % 10 == 0 && meshCollider != null)
             {
                 meshCollider.sharedMesh = null;
@@ -111,6 +148,7 @@ public class ExistingModelCarving : MonoBehaviour
         }
     }
     
+
     public void ResetMesh()
     {
         if (originalVertices != null && mesh != null)
@@ -125,10 +163,14 @@ public class ExistingModelCarving : MonoBehaviour
                 meshCollider.sharedMesh = null;
                 meshCollider.sharedMesh = mesh;
             }
+            
             Debug.Log("✓ Mesh reset!");
         }
     }
-    
+
+    // -------------------------------------------------------
+    // Subdivision (UNCHANGED)
+    // -------------------------------------------------------
     Mesh SubdivideMesh(Mesh originalMesh)
     {
         Vector3[] oldVerts = originalMesh.vertices;
@@ -156,15 +198,15 @@ public class ExistingModelCarving : MonoBehaviour
             Vector2 uv1 = i1 < oldUVs.Length ? oldUVs[i1] : Vector2.zero;
             Vector2 uv2 = i2 < oldUVs.Length ? oldUVs[i2] : Vector2.zero;
             
-            Vector3 m01 = (v0 + v1) / 2f;
-            Vector3 m12 = (v1 + v2) / 2f;
-            Vector3 m20 = (v2 + v0) / 2f;
+            Vector3 m01 = (v0 + v1) * 0.5f;
+            Vector3 m12 = (v1 + v2) * 0.5f;
+            Vector3 m20 = (v2 + v0) * 0.5f;
             
-            Vector2 uvm01 = (uv0 + uv1) / 2f;
-            Vector2 uvm12 = (uv1 + uv2) / 2f;
-            Vector2 uvm20 = (uv2 + uv0) / 2f;
+            Vector2 uvm01 = (uv0 + uv1) * 0.5f;
+            Vector2 uvm12 = (uv1 + uv2) * 0.5f;
+            Vector2 uvm20 = (uv2 + uv0) * 0.5f;
             
-            // Triangle 1
+            // TRIANGLE 1
             newVerts[vertIndex] = v0;
             newVerts[vertIndex + 1] = m01;
             newVerts[vertIndex + 2] = m20;
@@ -176,7 +218,7 @@ public class ExistingModelCarving : MonoBehaviour
             newTris[triIndex + 2] = vertIndex + 2;
             vertIndex += 3; triIndex += 3;
             
-            // Triangle 2
+            // TRIANGLE 2
             newVerts[vertIndex] = m01;
             newVerts[vertIndex + 1] = v1;
             newVerts[vertIndex + 2] = m12;
@@ -188,7 +230,7 @@ public class ExistingModelCarving : MonoBehaviour
             newTris[triIndex + 2] = vertIndex + 2;
             vertIndex += 3; triIndex += 3;
             
-            // Triangle 3
+            // TRIANGLE 3
             newVerts[vertIndex] = m20;
             newVerts[vertIndex + 1] = m12;
             newVerts[vertIndex + 2] = v2;
@@ -200,7 +242,7 @@ public class ExistingModelCarving : MonoBehaviour
             newTris[triIndex + 2] = vertIndex + 2;
             vertIndex += 3; triIndex += 3;
             
-            // Triangle 4 (center)
+            // TRIANGLE 4 (center)
             newVerts[vertIndex] = m01;
             newVerts[vertIndex + 1] = m12;
             newVerts[vertIndex + 2] = m20;

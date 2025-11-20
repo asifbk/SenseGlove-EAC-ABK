@@ -312,6 +312,7 @@ public class SG_TriggerLogic : MonoBehaviour
                 {
                     lastDeformTime = Time.time;
                     float pressureMultiplier = Mathf.Lerp(0.3f, 1f, latestPressure);
+                    carvable.SetDrillBit(drillTip);
                     carvable.CarveAtPosition(hit.point, drillRadius, carveSpeed * pressureMultiplier);
                     isTouchingWood = true;
                 }
