@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+﻿﻿using UnityEngine;
 using SG;
 using SGCore;
 using System.Linq;
@@ -6,50 +6,29 @@ using System.Linq;
 public class SG_TriggerLogic : MonoBehaviour
 {
     // ---------------- ENUMS -----------------
-
-    public enum RotationAxis
-    {
-        X, Y, Z
-    }
-
-    public enum DrillAxis
-    {
-        Forward,
-        Backward,
-        Up,
-        Down,
-        Right,
-        Left
-    }
+    public enum RotationAxis { X, Y, Z }
+    public enum DrillAxis { Forward, Backward, Up, Down, Right, Left }
 
     // --------------- REFERENCES -----------------
-
     [Header("SenseGlove Settings")]
     public SG_Grabable grabable;
     public Finger respondsTo = Finger.Index;
-    public VibrationLocation vibrationLocation = VibrationLocation.WholeHand;
 
     [Header("Flexion Settings")]
     [Range(0, 1)] public float startFlexion = 0.2f;
     [Range(0, 1)] public float endFlexion = 0.8f;
-
     private float latestPressure = 0f;
-    private float lastCmdSent = 0f;
-    private const float sendCooldown = 0.12f;
 
     // ---------------- ROTATION -----------------
-
     [Header("Drill Rotation Settings")]
     public Transform rotatingHead;
     public RotationAxis rotationAxis = RotationAxis.X;
     public float maxRotationSpeed = 1200f;
     public float resistanceFactor = 0.4f;
-
     private float currentRotationSpeed = 0f;
     private bool isTouchingWood = false;
 
     // ---------------- CARVING / RAYCAST -----------------
-
     [Header("Carving Settings")]
     public Transform drillTip;
     public bool autoFindActiveDrillBit = true;
@@ -66,14 +45,19 @@ public class SG_TriggerLogic : MonoBehaviour
     private float lastDeformTime = 0f;
 
     // ---------------- SOUND & PARTICLES -----------------
-
     [Header("Sound & Effects")]
     public AudioSource drillSound;
     public ParticleSystem woodDustParticles;
     public string woodTag = "Wood";
+    public WoodDustGenerator dustGenerator;
+
+    // ---------------- PUBLIC ACCESSORS -----------------
+    public float CurrentPressure => latestPressure;
+    public bool IsTouchingWood => isTouchingWood;
+    public bool IsGrabbed => grabable != null && grabable.IsGrabbed();
+    public Transform CurrentDrillTip => drillTip;
 
     // ----------------- UPDATE LOOP ----------------------
-
     void Start()
     {
         if (autoDetectDrillSize && drillTip != null)
@@ -84,8 +68,7 @@ public class SG_TriggerLogic : MonoBehaviour
 
     void Update()
     {
-        if (grabable == null || !grabable.IsGrabbed())
-            return;
+        if (grabable == null || !grabable.IsGrabbed()) return;
 
         if (autoFindActiveDrillBit)
         {
@@ -100,9 +83,8 @@ public class SG_TriggerLogic : MonoBehaviour
     }
 
     // ---------------------------------------------------------
-    //       🔥 FIX: UNIVERSAL DRILL BIT FINDER (works for all)
+    // UNIVERSAL DRILL BIT FINDER
     // ---------------------------------------------------------
-
     private Transform FindDeepChildContains(Transform parent, string text)
     {
         text = text.ToLower();
@@ -120,30 +102,23 @@ public class SG_TriggerLogic : MonoBehaviour
 
     private void FindActiveDrillBit()
     {
-        // 1️⃣ Step: Look inside drill model first
         Transform drillHolder = FindDeepChildContains(transform, "drill holder");
         if (drillHolder == null)
             drillHolder = FindDeepChildContains(transform, "holder");
-
         if (drillHolder != null)
         {
             foreach (Transform child in drillHolder)
             {
                 string n = child.name.ToLower();
-
-                if (child.gameObject.activeInHierarchy &&
-                    n.Contains("drill"))
+                if (child.gameObject.activeInHierarchy && n.Contains("drill"))
                 {
                     if (drillTip != child)
                     {
                         drillTip = child;
-
-#if UNITY_EDITOR
+                        #if UNITY_EDITOR
                         UnityEditor.EditorUtility.SetDirty(this);
-#endif
-
+                        #endif
                         Debug.Log("✓ Switched to INTERNAL drill bit: " + child.name);
-
                         if (autoDetectDrillSize)
                             DetectDrillSize();
                     }
@@ -152,26 +127,18 @@ public class SG_TriggerLogic : MonoBehaviour
             }
         }
 
-        // 2️⃣ Step: SEARCH SCENE drill bits (3mm, 5mm, 8mm, 10mm)
         GameObject[] sceneBits = GameObject.FindObjectsOfType<GameObject>()
-            .Where(go =>
-                go.activeInHierarchy &&
-                go.name.ToLower().Contains("drill") &&
-                go.name.ToLower().Contains("bit"))
+            .Where(go => go.activeInHierarchy && go.name.ToLower().Contains("drill") && go.name.ToLower().Contains("bit"))
             .ToArray();
-
         foreach (GameObject bit in sceneBits)
         {
             if (drillTip != bit.transform)
             {
                 drillTip = bit.transform;
-
-#if UNITY_EDITOR
+                #if UNITY_EDITOR
                 UnityEditor.EditorUtility.SetDirty(this);
-#endif
-
+                #endif
                 Debug.Log("✓ Switched to SCENE drill bit: " + bit.name);
-
                 if (autoDetectDrillSize)
                     DetectDrillSize();
             }
@@ -180,30 +147,21 @@ public class SG_TriggerLogic : MonoBehaviour
     }
 
     // ---------------------------------------------------------
-    //                 AUTO-DETECT DRILL SIZE
+    // AUTO-DETECT DRILL SIZE
     // ---------------------------------------------------------
-
     private void DetectDrillSize()
     {
         Collider col = drillTip.GetComponent<Collider>();
         if (col != null)
         {
             if (col is CapsuleCollider capsule)
-            {
                 drillRadius = capsule.radius * Mathf.Max(drillTip.lossyScale.x, drillTip.lossyScale.z);
-            }
             else if (col is SphereCollider sphere)
-            {
                 drillRadius = sphere.radius * Mathf.Max(drillTip.lossyScale.x, drillTip.lossyScale.z);
-            }
             else if (col is BoxCollider box)
-            {
                 drillRadius = Mathf.Max(box.size.x * drillTip.lossyScale.x, box.size.z * drillTip.lossyScale.z) / 2f;
-            }
             else
-            {
                 drillRadius = Mathf.Max(col.bounds.extents.x, col.bounds.extents.z);
-            }
         }
         else
         {
@@ -211,87 +169,72 @@ public class SG_TriggerLogic : MonoBehaviour
             if (mf != null && mf.sharedMesh != null)
             {
                 Bounds b = mf.sharedMesh.bounds;
-                drillRadius = Mathf.Max(
-                    b.extents.x * drillTip.lossyScale.x,
-                    b.extents.z * drillTip.lossyScale.z
-                );
+                drillRadius = Mathf.Max(b.extents.x * drillTip.lossyScale.x, b.extents.z * drillTip.lossyScale.z);
+            }
+        }
+
+        Debug.Log($"<color=yellow>Detected drill size: {drillTip.name} | Radius: {drillRadius:F4}m ({drillRadius * 2000f:F1}mm diameter)</color>");
+    }
+
+    // ---------------------------------------------------------
+    // FLEXION → PRESSURE (NO VIBRATION)
+    // ---------------------------------------------------------
+    private void UpdateTriggerPressure()
+    {
+        SG_TrackedHand hand = grabable.ScriptsGrabbingMe()[0].TrackedHand;
+        float[] flexions;
+        if (hand.GetNormalizedFlexion(out flexions))
+        {
+            float currFlex = flexions[(int)respondsTo];
+            latestPressure = Mathf.InverseLerp(startFlexion, endFlexion, currFlex);
+
+            // Only send FFB, no vibration
+            if (latestPressure > 0.05f)
+            {
+                grabable.QueueFFBCmd(Finger.Index, latestPressure);
             }
         }
     }
 
     // ---------------------------------------------------------
-    //                     FLEXION → PRESSURE
+    // ROTATION
     // ---------------------------------------------------------
-
-    private void UpdateTriggerPressure()
-    {
-        SG_TrackedHand hand = grabable.ScriptsGrabbingMe()[0].TrackedHand;
-        float[] flexions;
-
-        if (hand.GetNormalizedFlexion(out flexions))
-        {
-            float currFlex = flexions[(int)respondsTo];
-            latestPressure = Mathf.InverseLerp(startFlexion, endFlexion, currFlex);
-        }
-
-        if (latestPressure > 0.05f && Time.time - lastCmdSent >= sendCooldown)
-        {
-            lastCmdSent = Time.time;
-            int amp = Mathf.RoundToInt(latestPressure * 100);
-            grabable.SendVibrationCmd(vibrationLocation, amp, 0.1f, 170f);
-            grabable.QueueFFBCmd(Finger.Index, latestPressure);
-        }
-    }
-
-    // ---------------------------------------------------------
-    //                       ROTATION
-    // ---------------------------------------------------------
-
     private void HandleRotation()
     {
         if (rotatingHead == null) return;
-
         float targetSpeed = Mathf.Lerp(0f, maxRotationSpeed, latestPressure);
         if (isTouchingWood) targetSpeed *= resistanceFactor;
-
         currentRotationSpeed = Mathf.Lerp(currentRotationSpeed, targetSpeed, 8f * Time.deltaTime);
-
         Vector3 axis = rotationAxis == RotationAxis.X ? Vector3.right :
-                       rotationAxis == RotationAxis.Y ? Vector3.up :
-                       Vector3.forward;
-
+            rotationAxis == RotationAxis.Y ? Vector3.up :
+            Vector3.forward;
         rotatingHead.Rotate(axis * currentRotationSpeed * Time.deltaTime, Space.Self);
     }
 
     // ---------------------------------------------------------
-    //                 RAYCAST CARVING
+    // RAYCAST CARVING
     // ---------------------------------------------------------
-
     private Vector3 GetDrillDirection()
     {
         switch (drillDirection)
         {
-            case DrillAxis.Forward:  return drillTip.forward;
+            case DrillAxis.Forward: return drillTip.forward;
             case DrillAxis.Backward: return -drillTip.forward;
-            case DrillAxis.Up:       return drillTip.up;
-            case DrillAxis.Down:     return -drillTip.up;
-            case DrillAxis.Right:    return drillTip.right;
-            case DrillAxis.Left:     return -drillTip.right;
+            case DrillAxis.Up: return drillTip.up;
+            case DrillAxis.Down: return -drillTip.up;
+            case DrillAxis.Right: return drillTip.right;
+            case DrillAxis.Left: return -drillTip.right;
         }
         return drillTip.forward;
     }
 
     private void HandleCarving()
     {
-        if (drillTip == null)
-            return;
-
-        if (latestPressure < 0.1f)
-            return;
+        if (drillTip == null) return;
+        if (latestPressure < 0.1f) return;
 
         Vector3 dir = GetDrillDirection();
         Vector3 origin = drillTip.position + (dir * rayOffset);
-
         Debug.DrawRay(origin, dir * rayDistance, Color.red, 0.5f);
 
         RaycastHit hit;
@@ -299,13 +242,11 @@ public class SG_TriggerLogic : MonoBehaviour
             Physics.Raycast(origin, dir, out hit, rayDistance, carvableLayer) :
             Physics.Raycast(origin, dir, out hit, rayDistance);
 
-        if (didHit && hit.collider.transform.IsChildOf(transform))
-            return;
+        if (didHit && hit.collider.transform.IsChildOf(transform)) return;
 
         if (didHit)
         {
             ExistingModelCarving carvable = hit.collider.GetComponent<ExistingModelCarving>();
-
             if (carvable != null)
             {
                 if (Time.time - lastDeformTime >= deformCooldown)
@@ -314,6 +255,9 @@ public class SG_TriggerLogic : MonoBehaviour
                     float pressureMultiplier = Mathf.Lerp(0.3f, 1f, latestPressure);
                     carvable.SetDrillBit(drillTip);
                     carvable.CarveAtPosition(hit.point, drillRadius, carveSpeed * pressureMultiplier);
+                    woodDustParticles.Emit(10);
+                    if (dustGenerator != null)
+                        dustGenerator.SpawnDust();
                     isTouchingWood = true;
                 }
             }
@@ -329,18 +273,15 @@ public class SG_TriggerLogic : MonoBehaviour
     }
 
     // ---------------------------------------------------------
-    //              SOUND + PARTICLES
+    // SOUND + PARTICLES
     // ---------------------------------------------------------
-
     private void HandleAudio()
     {
         if (drillSound == null) return;
-
         if (latestPressure > 0.1f && !drillSound.isPlaying)
             drillSound.Play();
         else if (latestPressure <= 0.1f && drillSound.isPlaying)
             drillSound.Stop();
-
         drillSound.pitch = Mathf.Lerp(0.8f, 1.5f, latestPressure);
         drillSound.volume = Mathf.Lerp(0.1f, 1.0f, latestPressure);
     }
@@ -348,7 +289,6 @@ public class SG_TriggerLogic : MonoBehaviour
     private void HandleParticles()
     {
         if (woodDustParticles == null) return;
-
         if (isTouchingWood && latestPressure > 0.3f)
         {
             if (!woodDustParticles.isPlaying) woodDustParticles.Play();
@@ -360,19 +300,16 @@ public class SG_TriggerLogic : MonoBehaviour
     }
 
     // ---------------------------------------------------------
-    //                      COLLISION TAG CHECK
+    // COLLISION TAG CHECK
     // ---------------------------------------------------------
-
     private void OnCollisionEnter(Collision collision)
     {
         if (collision.gameObject.CompareTag(woodTag)) isTouchingWood = true;
     }
-
     private void OnCollisionStay(Collision collision)
     {
         if (collision.gameObject.CompareTag(woodTag)) isTouchingWood = true;
     }
-
     private void OnCollisionExit(Collision collision)
     {
         if (collision.gameObject.CompareTag(woodTag)) isTouchingWood = false;

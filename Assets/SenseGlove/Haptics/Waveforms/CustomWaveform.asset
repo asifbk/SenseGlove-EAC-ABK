@@ -14,13 +14,14 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   intendedMotor: 8
   amplitude: 1
-  waveformType: 1
-  attackTime: 0.083
-  sustainTime: 0
+  waveformType: 6
+  attackTime: 0
+  sustainTime: 1
   decayTime: 0
-  RepeatAmount: 3
+  pauseTime: 0
+  RepeatAmount: 1
   RepeatInfinite: 0
-  startFrequency: 180
+  startFrequency: 100
   endFrequency: 180
   frequencySwitchTime: 0
   frequencySwitchMultiplier: 1
