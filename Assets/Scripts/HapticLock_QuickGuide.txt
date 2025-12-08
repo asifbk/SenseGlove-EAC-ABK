@@ -1,0 +1,156 @@
+═══════════════════════════════════════════════════════════════════════
+HAPTIC LOCK - QUICK VISUAL GUIDE
+═══════════════════════════════════════════════════════════════════════
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                    FINGER LOCK WHEN OVERHEATED                      │
+└─────────────────────────────────────────────────────────────────────┘
+
+
+NORMAL DRILLING (0-89°)
+═══════════════════════════════════════════════════════════════════════
+
+    Your Finger:        Drill:
+    
+    ┌───┐              ⚪ Gray (cool)
+    │   │              🔘 Light glow
+    │ ✋ │   →          🟠 Orange glow
+    │   │              
+    └───┘              
+    
+    ✓ Can bend freely
+    ✓ Range: 0.3 → 0.5
+    ✓ Normal haptic feedback
+
+
+OVERHEAT LOCK (90°+)
+═══════════════════════════════════════════════════════════════════════
+
+    Your Finger:        Drill:
+    
+    ┌───┐              🔴 RED HOT!
+    │ 🚫 │ FROZEN!      💨 Smoking
+    │🔒 │   →          🔥 Overheated
+    │ X │              
+    └───┘              
+    
+    ✗ LOCKED at 0.3 (cannot bend!)
+    ✗ Range: 0.3 → 0.3 (ZERO range)
+    ✗ Cannot pull trigger at all
+    ⚠️ Must wait to cool down!
+
+
+COOLING DOWN (90° → 50°)
+═══════════════════════════════════════════════════════════════════════
+
+    Your Finger:        Drill:
+    
+    ┌───┐              🔴 → 🟠
+    │ 🚫 │ Still        Cooling...
+    │🔒 │   frozen!    
+    │ X │              
+    └───┘              
+    
+    ✗ Still locked at 0.3!
+    ⏱️ Waiting for temp to drop below 50°
+    ⚠️ Be patient!
+
+
+UNLOCKED (Below 50°)
+═══════════════════════════════════════════════════════════════════════
+
+    Your Finger:        Drill:
+    
+    ┌───┐              🟠 Warm
+    │   │              ⚪ Cooling
+    │ ✋ │   →          
+    │   │              
+    └───┘              
+    
+    ✓ RELEASED!
+    ✓ Can unbend again
+    ✓ Range: 0.3 → 0.5 restored
+    ✓ Normal operation
+
+
+═══════════════════════════════════════════════════════════════════════
+TIMELINE
+═══════════════════════════════════════════════════════════════════════
+
+0s                    10s                   18s          ~31s
+├─────────────────────┼─────────────────────┼────────────┼─────────────→
+│                     │                     │            │
+⚪ Cool               🟠 Warm               🔴🔒 LOCKED  ✓ Unlocked
+Finger free          Finger free           STUCK!       Free again
+                                           
+                                           ← Lock Duration (if stopped drilling) →
+                                           |←    ~13 seconds cool down        →|
+
+
+═══════════════════════════════════════════════════════════════════════
+WHAT YOU FEEL
+═══════════════════════════════════════════════════════════════════════
+
+When drill hits 90°:
+    👆 Immediate HARD STOP on finger
+    👆 Cannot bend finger at all
+    👆 Can't pull trigger!
+    👆 Feels like trigger is frozen/jammed
+
+While locked:
+    👆 Constant wall preventing movement
+    👆 Feels completely "frozen"
+    👆 Strong haptic warning
+
+When unlocked at 50°:
+    👆 Sudden release!
+    👆 Finger can bend again
+    👆 Trigger responds normally
+
+
+═══════════════════════════════════════════════════════════════════════
+QUICK SETTINGS
+═══════════════════════════════════════════════════════════════════════
+
+In DrillHeatSystem Inspector:
+
+    [Haptic Feedback]
+    ☑ Enable Haptic Lock        ← Turn on/off
+    Normal End Flexion: 0.5      ← Normal limit
+    Locked End Flexion: 0.3      ← Lock limit (frozen!)
+
+
+Turn OFF:
+    ☐ Enable Haptic Lock
+
+Slightly less restrictive (tiny movement allowed):
+    Locked End Flexion: 0.35
+
+Maximum lock (absolutely frozen):
+    Locked End Flexion: 0.0
+
+
+═══════════════════════════════════════════════════════════════════════
+TEST IT
+═══════════════════════════════════════════════════════════════════════
+
+1. Press Play
+2. Grab drill
+3. Hold trigger for 18 seconds
+4. Feel your finger LOCK! 🔒
+5. Wait ~13 more seconds
+6. Feel your finger RELEASE! ✓
+
+
+Quick test (skip waiting):
+    1. Play mode
+    2. Select DummyDrill-Rigged
+    3. DrillHeatSystem → Current Heat: 95
+    4. INSTANT LOCK! 🔒
+    5. Current Heat: 45
+    6. INSTANT UNLOCK! ✓
+
+
+═══════════════════════════════════════════════════════════════════════
+
+Simple rule: Overheat (90°) = Finger frozen! Cool (50°) = Finger free!

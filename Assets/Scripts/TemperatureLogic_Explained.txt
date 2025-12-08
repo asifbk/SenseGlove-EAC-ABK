@@ -1,0 +1,285 @@
+═══════════════════════════════════════════════════════════════════════
+DRILL HEAT SYSTEM - TEMPERATURE LOGIC EXPLAINED
+═══════════════════════════════════════════════════════════════════════
+
+CORE LOGIC
+═══════════════════════════════════════════════════════════════════════
+
+Heat increases when:
+    ✓ Trigger pressure > 10% (0.1)
+    AND
+    ✓ Drill bit is touching wood
+
+Heat decreases when:
+    ✓ Trigger released
+    OR
+    ✓ Not touching wood
+
+═══════════════════════════════════════════════════════════════════════
+FORMULA
+═══════════════════════════════════════════════════════════════════════
+
+HEAT INCREASE (when drilling):
+────────────────────────────────────────────────────────────────────────
+
+    heatPerSecond = heatIncreaseRate * pressureMultiplier
+    
+Where:
+    heatIncreaseRate = 8 (configurable in Inspector)
+    pressureMultiplier = Lerp(0.5, 1.5, triggerPressure)
+    
+    triggerPressure ranges from 0.0 to 1.0
+        0.0 = trigger not pressed
+        0.5 = trigger half pressed
+        1.0 = trigger fully pressed
+
+PRESSURE MULTIPLIER TABLE:
+────────────────────────────────────────────────────────────────────────
+Trigger Pressure | Multiplier | Heat/Sec (at rate=8) | Time to 100°
+─────────────────────────────────────────────────────────────────────
+0% (not pressed) | 0.50       | 4.0°/sec             | N/A (too low)
+10% (minimum)    | 0.55       | 4.4°/sec             | ~23 seconds
+20%              | 0.60       | 4.8°/sec             | ~21 seconds
+30%              | 0.65       | 5.2°/sec             | ~19 seconds
+40%              | 0.70       | 5.6°/sec             | ~18 seconds
+50% (half)       | 1.00       | 8.0°/sec             | ~13 seconds
+60%              | 1.10       | 8.8°/sec             | ~11 seconds
+70%              | 1.20       | 9.6°/sec             | ~10 seconds
+80%              | 1.30       | 10.4°/sec            | ~10 seconds
+90%              | 1.40       | 11.2°/sec            | ~9 seconds
+100% (full)      | 1.50       | 12.0°/sec            | ~8 seconds
+
+HEAT DECREASE (when not drilling):
+────────────────────────────────────────────────────────────────────────
+
+    heatPerSecond = -coolDownRate
+    
+Where:
+    coolDownRate = 3 (configurable in Inspector)
+    
+Time to cool from 100° to 0° = 100 / 3 = ~33 seconds
+
+═══════════════════════════════════════════════════════════════════════
+CODE BREAKDOWN
+═══════════════════════════════════════════════════════════════════════
+
+bool isDrilling = triggerLogic.CurrentPressure > 0.1f 
+                  && triggerLogic.IsTouchingWood;
+
+Explanation:
+    triggerLogic.CurrentPressure
+        └─ Value from 0.0 to 1.0 representing trigger pull
+        └─ Updated by SG_TriggerLogic component
+        
+    > 0.1f
+        └─ Must be greater than 10% to count as drilling
+        └─ Prevents accidental heating from light touches
+        
+    triggerLogic.IsTouchingWood
+        └─ Boolean property from SG_TriggerLogic
+        └─ True when drill bit collides with "Wood" tagged object
+        └─ Updated by OnCollisionEnter/Stay/Exit
+
+if (isDrilling)
+{
+    float heatMultiplier = Mathf.Lerp(0.5f, 1.5f, triggerLogic.CurrentPressure);
+    float heatIncrease = heatIncreaseRate * heatMultiplier * Time.deltaTime;
+    currentHeat += heatIncrease;
+}
+
+Explanation:
+    Mathf.Lerp(0.5f, 1.5f, pressure)
+        └─ Linear interpolation between 0.5 and 1.5
+        └─ When pressure = 0.0 → multiplier = 0.5
+        └─ When pressure = 0.5 → multiplier = 1.0
+        └─ When pressure = 1.0 → multiplier = 1.5
+        
+    Time.deltaTime
+        └─ Time since last frame (typically ~0.016s at 60 FPS)
+        └─ Ensures heat increases at same rate regardless of framerate
+        
+    Example at 60 FPS with 80% pressure:
+        heatMultiplier = Lerp(0.5, 1.5, 0.8) = 1.3
+        heatIncrease = 8 * 1.3 * 0.016 = 0.166° per frame
+        Per second = 0.166 * 60 = 10°/sec
+
+else
+{
+    currentHeat -= coolDownRate * Time.deltaTime;
+}
+
+Explanation:
+    When not drilling, heat decreases linearly
+    Example at 60 FPS:
+        heatDecrease = 3 * 0.016 = 0.048° per frame
+        Per second = 0.048 * 60 = 3°/sec
+
+currentHeat = Mathf.Clamp(currentHeat, 0, maxHeat);
+
+Explanation:
+    Clamps heat between 0 and maxHeat (default 100)
+    Prevents negative heat or exceeding maximum
+
+═══════════════════════════════════════════════════════════════════════
+VISUAL EFFECTS THRESHOLDS
+═══════════════════════════════════════════════════════════════════════
+
+Heat Value | Effect                           | Time to Reach*
+───────────────────────────────────────────────────────────────────────
+0°         | No effects, drill is cool        | Start
+25°        | Faint gray glow begins           | ~2-3 seconds
+50°        | Burning smell particles start ⚠️  | ~5-6 seconds
+70°        | Smoke particles start 💨          | ~7-9 seconds
+85°        | Bright orange glow               | ~9-10 seconds
+100°       | Maximum: red glow, heavy smoke 🔥 | ~10-13 seconds
+
+*Time assumes 70-100% trigger pressure
+
+═══════════════════════════════════════════════════════════════════════
+WHY HEAT MIGHT NOT INCREASE
+═══════════════════════════════════════════════════════════════════════
+
+REASON 1: Trigger pressure too low
+────────────────────────────────────────────────────────────────────────
+Condition: triggerLogic.CurrentPressure <= 0.1
+Solution: Pull trigger harder (>10%)
+Debug: Enable Debug Logs, check "Pressure" value
+
+REASON 2: Not touching wood
+────────────────────────────────────────────────────────────────────────
+Condition: triggerLogic.IsTouchingWood = false
+Solution: Make sure table/wood has "Wood" tag
+Debug: Enable Debug Logs, check "TouchingWood" value
+
+REASON 3: No collision detection
+────────────────────────────────────────────────────────────────────────
+Condition: Drill bit not colliding with wood
+Causes:
+    - No collider on drill bit
+    - No collider on wood object
+    - Colliders not overlapping
+    - Collision layers preventing collision
+Solution: Check colliders exist and can collide
+
+REASON 4: SG_TriggerLogic missing
+────────────────────────────────────────────────────────────────────────
+Condition: triggerLogic = null
+Solution: Add SG_TriggerLogic to DummyDrill-Rigged
+Debug: Console will show "SG_TriggerLogic is null!"
+
+REASON 5: DrillHeatSystem disabled
+────────────────────────────────────────────────────────────────────────
+Condition: Component checkmark unchecked
+Solution: Enable the component in Inspector
+
+═══════════════════════════════════════════════════════════════════════
+CONFIGURATION EXAMPLES
+═══════════════════════════════════════════════════════════════════════
+
+REALISTIC (Slower heating):
+────────────────────────────────────────────────────────────────────────
+Heat Increase Rate: 5
+Cool Down Rate: 4
+Burning Threshold: 60
+Overheating Threshold: 80
+
+Result: ~20 seconds to max heat, 25 seconds to cool
+
+ARCADE (Faster heating):
+────────────────────────────────────────────────────────────────────────
+Heat Increase Rate: 15
+Cool Down Rate: 2
+Burning Threshold: 30
+Overheating Threshold: 50
+
+Result: ~7 seconds to max heat, 50 seconds to cool
+
+BALANCED (Default):
+────────────────────────────────────────────────────────────────────────
+Heat Increase Rate: 8
+Cool Down Rate: 3
+Burning Threshold: 50
+Overheating Threshold: 70
+
+Result: ~10-13 seconds to max heat, 33 seconds to cool
+
+CHALLENGING (Overheats quickly):
+────────────────────────────────────────────────────────────────────────
+Heat Increase Rate: 20
+Cool Down Rate: 1
+Burning Threshold: 20
+Overheating Threshold: 40
+
+Result: ~5 seconds to max heat, 100 seconds to cool
+Forces player to manage heat carefully!
+
+═══════════════════════════════════════════════════════════════════════
+MATHEMATICAL PROOF
+═══════════════════════════════════════════════════════════════════════
+
+Given:
+    heatIncreaseRate = 8
+    pressureMultiplier = 1.5 (full trigger)
+    deltaTime = 0.0167 (60 FPS)
+
+Per frame:
+    heatIncrease = 8 * 1.5 * 0.0167
+    heatIncrease = 0.200°
+
+Per second (60 frames):
+    heatPerSecond = 0.200 * 60
+    heatPerSecond = 12°/sec
+
+Time to reach 100° from 0°:
+    time = 100 / 12
+    time = 8.33 seconds
+
+This matches the table above! ✓
+
+═══════════════════════════════════════════════════════════════════════
+DEBUGGING WITH DEBUG LOGS
+═══════════════════════════════════════════════════════════════════════
+
+Enable "Enable Debug Logs" in DrillHeatSystem Inspector.
+
+Console output every second (60 frames):
+
+Normal drilling:
+    [DrillHeatSystem] Pressure: 0.85, TouchingWood: True, isDrilling: True, Heat: 42.3
+    [DrillHeatSystem] Heat increasing by 0.173 per frame (multiplier: 1.28)
+
+Not touching wood:
+    [DrillHeatSystem] Pressure: 0.85, TouchingWood: False, isDrilling: False, Heat: 42.3
+    (Heat decreasing)
+
+Low pressure:
+    [DrillHeatSystem] Pressure: 0.05, TouchingWood: True, isDrilling: False, Heat: 42.3
+    (Heat decreasing - pressure too low!)
+
+Missing component:
+    [DrillHeatSystem] SG_TriggerLogic is null! Cannot detect drilling.
+
+═══════════════════════════════════════════════════════════════════════
+SUMMARY
+═══════════════════════════════════════════════════════════════════════
+
+Heat increases when BOTH are true:
+    ✓ Trigger > 10% pressed
+    ✓ Touching wood object
+
+Rate depends on trigger pressure:
+    Light press (10-50%) = 4-8°/sec
+    Full press (100%)    = 12°/sec
+
+Heat decreases when not drilling:
+    Fixed rate: 3°/sec
+
+Visual effects:
+    50° = Burning smell
+    70° = Smoke
+    
+Typical gameplay:
+    10 seconds drilling → 100° (max heat)
+    33 seconds idle    → 0° (fully cooled)
+
+═══════════════════════════════════════════════════════════════════════

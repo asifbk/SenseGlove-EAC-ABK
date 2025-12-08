@@ -1,0 +1,140 @@
+═══════════════════════════════════════════════════════════════════════
+DRILL HEAT SYSTEM - CHANGE LOG
+═══════════════════════════════════════════════════════════════════════
+
+VERSION 1.1 - Multi-Drill Bit Support Fix
+═══════════════════════════════════════════════════════════════════════
+
+ISSUE FIXED:
+────────────────────────────────────────────────────────────────────────
+When swapping drill bits (3mm, 5mm, 8mm, 10mm), the heat system would:
+- ✓ Correctly detect the new drill bit tip
+- ✓ Move the point light glow to the new drill bit
+- ✗ Continue applying heat color/emission to the OLD drill bit's material
+- ✗ New drill bit would not show heat glow
+
+CAUSE:
+────────────────────────────────────────────────────────────────────────
+The UpdateDrillBitReferences() method was only updating the renderer
+reference when it was null, but NOT updating the material reference
+when the drill bit changed.
+
+The old material reference remained in memory, so heat effects were
+still being applied to the previous drill bit's material.
+
+SOLUTION:
+────────────────────────────────────────────────────────────────────────
+Updated UpdateDrillBitReferences() to:
+
+1. Reset the previous drill bit's material to original state
+2. Always get the new drill bit's renderer (not just when null)
+3. Get fresh material reference from the new drill bit
+4. Store the new material's original emission color
+5. Update the point light glow parent to the new drill bit
+
+CHANGES TO CODE:
+────────────────────────────────────────────────────────────────────────
+
+BEFORE:
+    void UpdateDrillBitReferences()
+    {
+        if (drillBitTip != null)
+        {
+            if (drillBitRenderer == null)  // ← Only updates when null!
+            {
+                drillBitRenderer = drillBitTip.GetComponent<Renderer>();
+            }
+            // Material reference never updated!
+            ...
+        }
+    }
+
+AFTER:
+    void UpdateDrillBitReferences()
+    {
+        if (drillBitTip != null)
+        {
+            ResetPreviousMaterial();  // ← NEW: Reset old material
+            
+            // ALWAYS get new renderer, not just when null
+            drillBitRenderer = drillBitTip.GetComponent<Renderer>();
+            
+            // Get fresh material from new drill bit
+            if (drillBitRenderer != null && ...)
+            {
+                drillBitMaterial = drillBitRenderer.materials[materialIndex];
+                // Store new original emission color
+                originalEmissionColor = drillBitMaterial.GetColor(...);
+            }
+            ...
+        }
+    }
+    
+    // NEW METHOD: Resets previous drill bit to original state
+    void ResetPreviousMaterial()
+    {
+        if (drillBitMaterial != null && hasEmission)
+        {
+            drillBitMaterial.SetColor("_EmissionColor", originalEmissionColor);
+        }
+    }
+
+HOW IT WORKS NOW:
+────────────────────────────────────────────────────────────────────────
+
+Step 1: User grabs 3mm drill bit
+    └─ Heat system locks onto 3mm drill bit material
+    └─ Heat increases, 3mm drill bit glows red
+    
+Step 2: User swaps to 5mm drill bit
+    └─ System detects drill bit changed
+    └─ ResetPreviousMaterial() called:
+        ├─ 3mm drill bit's material reset to original color
+        └─ No more glow on 3mm bit
+    └─ New references acquired:
+        ├─ drillBitRenderer = 5mm drill bit's renderer
+        ├─ drillBitMaterial = 5mm drill bit's material
+        └─ originalEmissionColor = 5mm bit's original color
+    └─ Point light moved to 5mm drill bit
+    └─ Heat effects now apply to 5mm drill bit
+
+Step 3: User continues drilling
+    └─ Heat increases
+    └─ 5mm drill bit now glows red ✓
+    └─ 3mm drill bit stays normal ✓
+
+TESTING:
+────────────────────────────────────────────────────────────────────────
+
+To test the fix:
+
+1. Press Play
+2. Grab the drill
+3. Drill into wood until it glows red (70%+ heat)
+4. While hot, swap to a different drill bit
+5. Verify:
+   ✓ Old drill bit returns to normal color
+   ✓ New drill bit starts showing heat glow
+   ✓ Point light is on the new drill bit
+   ✓ Particles emit from new drill bit position
+
+BENEFITS:
+────────────────────────────────────────────────────────────────────────
+
+✓ Heat effects correctly transfer between drill bits
+✓ Old drill bits don't retain heat glow after swapping
+✓ Supports unlimited drill bit swapping
+✓ Each drill bit maintains its own visual state
+✓ Heat value persists across swaps (realistic!)
+✓ No performance impact
+
+BACKWARDS COMPATIBILITY:
+────────────────────────────────────────────────────────────────────────
+
+✓ No breaking changes
+✓ All existing functionality preserved
+✓ Works with single drill bit setups
+✓ Works with multiple drill bit setups
+✓ No changes needed to Inspector settings
+
+═══════════════════════════════════════════════════════════════════════

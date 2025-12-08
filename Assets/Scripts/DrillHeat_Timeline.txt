@@ -1,0 +1,195 @@
+═══════════════════════════════════════════════════════════════════════
+DRILL HEAT TIMELINE - VISUAL REFERENCE
+═══════════════════════════════════════════════════════════════════════
+
+WHEN HOLDING TRIGGER:
+═══════════════════════════════════════════════════════════════════════
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                     DRILL BIT HEAT PROGRESSION                      │
+└─────────────────────────────────────────────────────────────────────┘
+
+0 SECONDS | 0° Heat
+────────────────────────────────────────────────────────────────────
+    ⚪ Normal gray drill bit
+    ☐ No particles
+    ☐ No glow
+    
+    [Action: Grab drill, pull trigger]
+
+
+2 SECONDS | 10° Heat
+────────────────────────────────────────────────────────────────────
+    🔘 Very faint glow starting
+    ☐ No particles yet
+
+
+5 SECONDS | 25° Heat
+────────────────────────────────────────────────────────────────────
+    ⚫ Light gray glow
+    ☐ Still no particles
+
+
+⭐ 10 SECONDS | 50° Heat - WARM THRESHOLD
+────────────────────────────────────────────────────────────────────
+    🟠 ORANGE GLOW appears!
+    ☑ Burning smell particles start
+    ☐ No smoke yet
+    
+    Visual: Drill bit glowing orange
+    Audio: Sizzling sound starts (if configured)
+
+
+13 SECONDS | 65° Heat
+────────────────────────────────────────────────────────────────────
+    🟠 Bright orange glow
+    ☑ More burning smell particles
+    ☐ Smoke not yet
+
+
+⭐ 18 SECONDS | 90° Heat - HOT THRESHOLD
+────────────────────────────────────────────────────────────────────
+    🔴 RED GLOW appears!
+    ☑ Burning smell particles (heavy)
+    ☑ SMOKE PARTICLES START!
+    
+    Visual: Drill bit glowing bright red
+    Audio: Overheating sound (if configured)
+    Particles: Both burning smell and smoke
+
+
+20 SECONDS | 100° Heat - MAXIMUM
+────────────────────────────────────────────────────────────────────
+    🔥 MAXIMUM RED GLOW
+    ☑ Heavy burning smell
+    ☑ Heavy smoke
+    
+    Heat stops increasing (clamped at 100°)
+    All visual effects at maximum intensity
+
+
+═══════════════════════════════════════════════════════════════════════
+WHEN RELEASING TRIGGER:
+═══════════════════════════════════════════════════════════════════════
+
+FROM 100° TO 0° (if you stop drilling at max heat):
+────────────────────────────────────────────────────────────────────
+
+0s  | 100° 🔥 Max red, heavy smoke
+3s  | 91°  🔴 Still hot/smoking (just below hot threshold)
+5s  | 85°  🔴 Red glow, smoke stopping
+8s  | 76°  🟠 Orange, no smoke
+13s | 61°  🟠 Orange, burning smell
+17s | 49°  🟠 Warm glow fading
+20s | 40°  🔘 Light glow
+25s | 25°  ⚪ Faint glow
+30s | 10°  ⚪ Almost cool
+33s | 0°   ⚪ Fully cool, normal gray
+
+
+═══════════════════════════════════════════════════════════════════════
+VISUAL LEGEND
+═══════════════════════════════════════════════════════════════════════
+
+COLOR INDICATORS:
+    ⚪ Gray (cool, 0-30°)
+    🔘 Light gray (warming, 30-50°)
+    🟠 Orange (warm, 50-90°)
+    🔴 Red (hot, 90-100°)
+    🔥 Maximum red (100°)
+
+PARTICLE INDICATORS:
+    ☐ No particles
+    ☑ Particles active
+
+EFFECTS:
+    Burning Smell: Yellowish wisps (starts at 50°)
+    Smoke: Gray smoke (starts at 90°)
+
+
+═══════════════════════════════════════════════════════════════════════
+SIDE-BY-SIDE COMPARISON
+═══════════════════════════════════════════════════════════════════════
+
+Time | Heat | Glow Color | Burning Smell | Smoke | Audio
+─────┼──────┼────────────┼───────────────┼───────┼──────────────────
+0s   | 0°   | Gray       | No            | No    | Silent
+5s   | 25°  | Light Gray | No            | No    | Silent
+10s  | 50°  | Orange     | YES ✓         | No    | Sizzle starts
+15s  | 75°  | Orange     | YES ✓         | No    | Sizzle
+18s  | 90°  | Red        | YES ✓         | YES ✓ | Overheating
+20s  | 100° | Bright Red | YES ✓         | YES ✓ | Overheating
+
+
+═══════════════════════════════════════════════════════════════════════
+DRILL BIT SWAPPING
+═══════════════════════════════════════════════════════════════════════
+
+Scenario: Heat at 80°, swap from 3mm to 5mm drill bit
+────────────────────────────────────────────────────────────────────
+
+BEFORE SWAP:
+    [3mm drill bit] 🟠 Orange glow, burning smell particles
+    [5mm drill bit] ⚪ Normal gray (not attached)
+
+SWAP ACTION:
+    [3mm drill bit] → Detached
+    [5mm drill bit] → Attached
+
+AFTER SWAP:
+    [3mm drill bit] ⚪ Returns to normal gray (no glow) ✓
+    [5mm drill bit] 🟠 Now glowing orange! ✓
+    
+    Particles moved to 5mm drill bit ✓
+    Heat value stays at 80° (persists) ✓
+    Point light moved to 5mm drill bit ✓
+
+
+═══════════════════════════════════════════════════════════════════════
+STOP/START CYCLES
+═══════════════════════════════════════════════════════════════════════
+
+Example: Drilling in bursts
+────────────────────────────────────────────────────────────────────
+
+Action                  | Time | Heat | Visual
+────────────────────────┼──────┼──────┼────────────────────────────
+Pull trigger (drill)    | 0s   | 0°   | ⚪ Gray
+Keep drilling           | 10s  | 50°  | 🟠 Orange, burning smell
+RELEASE trigger         | 10s  | 50°  | 🟠 Orange (still)
+Wait...                 | 12s  | 44°  | 🔘 Fading to gray
+Wait...                 | 15s  | 35°  | ⚪ Light gray
+Pull trigger again      | 15s  | 35°  | ⚪ Light gray
+Drill again             | 18s  | 50°  | 🟠 Orange returns!
+Keep drilling           | 23s  | 75°  | 🟠 Bright orange
+Keep drilling           | 26s  | 90°  | 🔴 Red + smoke!
+
+
+═══════════════════════════════════════════════════════════════════════
+QUICK REFERENCE
+═══════════════════════════════════════════════════════════════════════
+
+KEY MOMENTS:
+────────────────────────────────────────────────────────────────────
+
+    ⏱️ 10 seconds → 🟠 Warm (orange, burning smell)
+    ⏱️ 18 seconds → 🔴 Hot (red, smoke)
+    ⏱️ 20 seconds → 🔥 Maximum heat
+    ⏱️ 33 seconds → ⚪ Fully cooled (from max)
+
+RATES:
+────────────────────────────────────────────────────────────────────
+
+    Heating:  +5° per second (when trigger held)
+    Cooling:  -3° per second (when trigger released)
+
+THRESHOLDS:
+────────────────────────────────────────────────────────────────────
+
+    Warm Color:  50° heat
+    Hot Color:   90° heat
+    Max Heat:    100°
+
+═══════════════════════════════════════════════════════════════════════
+
+Simple rule: Hold trigger for 10s = orange, 18s = red + smoke! 🎯

@@ -1,0 +1,253 @@
+═══════════════════════════════════════════════════════════════════════
+BATTERY CELLS - POSITION UPDATE
+═══════════════════════════════════════════════════════════════════════
+
+WHAT CHANGED:
+═══════════════════════════════════════════════════════════════════════
+
+Updated BatteryCells container to use your specified transform:
+
+    Position:  (0.6, 0, 0)
+    Rotation:  (0, 90, 0)
+    Scale:     (5, 5, 5)
+
+
+═══════════════════════════════════════════════════════════════════════
+NEW DEFAULT VALUES
+═══════════════════════════════════════════════════════════════════════
+
+BatteryLevelIndicator component now has:
+
+[Cell Settings]
+────────────────────────────────────────────────────────────────────────
+Number Of Cells: 6
+Cell Size: (0.01, 0.02, 0.008)
+Cell Spacing: 0.012
+Cell Offset: (0.6, 0, 0)              ← NEW! Position
+Cell Rotation: (0, 90, 0)             ← NEW! Rotation
+Cell Container Scale: (5, 5, 5)       ← NEW! Scale
+
+
+═══════════════════════════════════════════════════════════════════════
+HOW IT WORKS
+═══════════════════════════════════════════════════════════════════════
+
+HIERARCHY:
+────────────────────────────────────────────────────────────────────────
+
+BatteryPack (parent)
+└── BatteryCells
+    │   Position: (0.6, 0, 0)       ← Moved to the right
+    │   Rotation: (0, 90, 0)        ← Rotated 90° on Y axis
+    │   Scale: (5, 5, 5)            ← Scaled up 5x
+    │
+    ├── BatteryCell_1 (local to BatteryCells)
+    ├── BatteryCell_2 (local to BatteryCells)
+    ├── BatteryCell_3 (local to BatteryCells)
+    ├── BatteryCell_4 (local to BatteryCells)
+    ├── BatteryCell_5 (local to BatteryCells)
+    └── BatteryCell_6 (local to BatteryCells)
+
+
+TRANSFORM DETAILS:
+────────────────────────────────────────────────────────────────────────
+
+Cell Offset (0.6, 0, 0):
+    Positions the entire cell container 0.6 units to the RIGHT
+    of the BatteryPack center (in local space)
+
+Cell Rotation (0, 90, 0):
+    Rotates the entire cell container 90 degrees around Y axis
+    This makes cells arranged along Z axis instead of X axis
+
+Cell Container Scale (5, 5, 5):
+    Makes the entire cell container 5x larger
+    Individual cells maintain their relative size (0.01, 0.02, 0.008)
+    But world size becomes (0.05, 0.1, 0.04)
+
+
+═══════════════════════════════════════════════════════════════════════
+VISUAL RESULT
+═══════════════════════════════════════════════════════════════════════
+
+BEFORE (default):
+────────────────────────────────────────────────────────────────────────
+BatteryPack
+    [🟢🟢🟢🟢🟢🟢]  ← Cells centered, small, horizontal (X axis)
+
+
+AFTER (your settings):
+────────────────────────────────────────────────────────────────────────
+BatteryPack
+                    🟢
+                    🟢
+                    🟢
+    [           ]   🟢  ← Cells offset to right (0.6),
+                    🟢     scaled 5x larger,
+                    🟢     rotated 90° (now along Z axis)
+
+
+═══════════════════════════════════════════════════════════════════════
+TESTING
+═══════════════════════════════════════════════════════════════════════
+
+TO SEE THE NEW POSITION:
+────────────────────────────────────────────────────────────────────────
+
+1. Stop Play mode (if playing)
+2. Press Play
+3. Cells will be recreated with new transform
+4. In Hierarchy, expand BatteryPack
+5. Select "BatteryCells" to see:
+   
+   Position: (0.6, 0, 0)
+   Rotation: (0, 90, 0)
+   Scale: (5, 5, 5)
+
+
+IN SCENE VIEW:
+────────────────────────────────────────────────────────────────────────
+
+1. Press Play
+2. Select BatteryCells in Hierarchy
+3. Look at Scene view
+4. Cells should be:
+   - Offset to the RIGHT of battery pack
+   - Rotated 90 degrees (vertical if battery is horizontal)
+   - 5x larger than before
+
+
+═══════════════════════════════════════════════════════════════════════
+CUSTOMIZATION
+═══════════════════════════════════════════════════════════════════════
+
+You can still adjust these values in the Inspector:
+
+MOVE CELLS:
+────────────────────────────────────────────────────────────────────────
+Cell Offset: (0.6, 0, 0)     ← Right
+Cell Offset: (0.6, 0.1, 0)   ← Right and up
+Cell Offset: (0.6, 0, 0.05)  ← Right and forward
+Cell Offset: (0.8, 0, 0)     ← Further right
+
+
+ROTATE CELLS:
+────────────────────────────────────────────────────────────────────────
+Cell Rotation: (0, 90, 0)    ← Current (vertical)
+Cell Rotation: (0, 0, 0)     ← Horizontal (along X)
+Cell Rotation: (0, 180, 0)   ← Flipped
+Cell Rotation: (90, 0, 0)    ← Different orientation
+
+
+SCALE CELLS:
+────────────────────────────────────────────────────────────────────────
+Cell Container Scale: (5, 5, 5)     ← Current (5x)
+Cell Container Scale: (3, 3, 3)     ← Smaller (3x)
+Cell Container Scale: (10, 10, 10)  ← Larger (10x)
+Cell Container Scale: (5, 2, 5)     ← Squashed vertically
+
+
+═══════════════════════════════════════════════════════════════════════
+COORDINATE EXPLANATION
+═══════════════════════════════════════════════════════════════════════
+
+Position (0.6, 0, 0):
+────────────────────────────────────────────────────────────────────────
+X = 0.6   → Right (positive X)
+Y = 0     → No vertical offset
+Z = 0     → No forward/back offset
+
+
+Rotation (0, 90, 0):
+────────────────────────────────────────────────────────────────────────
+X = 0     → No pitch
+Y = 90    → Rotate 90° clockwise (top view)
+Z = 0     → No roll
+
+Effect: Cells that were along X axis now along Z axis
+
+
+Scale (5, 5, 5):
+────────────────────────────────────────────────────────────────────────
+X = 5     → 5x wider
+Y = 5     → 5x taller
+Z = 5     → 5x deeper
+
+Uniform scale - maintains proportions
+
+
+═══════════════════════════════════════════════════════════════════════
+CELL ARRANGEMENT AFTER ROTATION
+═══════════════════════════════════════════════════════════════════════
+
+BEFORE ROTATION (0, 0, 0):
+────────────────────────────────────────────────────────────────────────
+Top view:
+    [Cell1][Cell2][Cell3][Cell4][Cell5][Cell6]
+    ──────────────────────────────────────────→ X axis
+
+
+AFTER ROTATION (0, 90, 0):
+────────────────────────────────────────────────────────────────────────
+Top view:
+    [Cell6]
+    [Cell5]
+    [Cell4]
+    [Cell3]
+    [Cell2]
+    [Cell1]
+      ↓
+      Z axis
+
+
+═══════════════════════════════════════════════════════════════════════
+ACTUAL WORLD POSITIONS
+═══════════════════════════════════════════════════════════════════════
+
+BatteryCells container:
+    Local: (0.6, 0, 0) relative to BatteryPack
+    Rotation: 90° on Y
+    Scale: 5x
+
+Individual cells (inside BatteryCells):
+    Cell 1: local X = -0.03 → becomes Z = -0.15 (world, after rotation & scale)
+    Cell 2: local X = -0.018 → becomes Z = -0.09 (world, after rotation & scale)
+    Cell 3: local X = -0.006 → becomes Z = -0.03 (world, after rotation & scale)
+    Cell 4: local X = 0.006 → becomes Z = 0.03 (world, after rotation & scale)
+    Cell 5: local X = 0.018 → becomes Z = 0.09 (world, after rotation & scale)
+    Cell 6: local X = 0.03 → becomes Z = 0.15 (world, after rotation & scale)
+
+
+═══════════════════════════════════════════════════════════════════════
+VISUAL EXAMPLE
+═══════════════════════════════════════════════════════════════════════
+
+BatteryPack (gray shell) with visible cells:
+
+    Side view:
+    ┌────────────────┐
+    │                │ 🟢 Cell 6 (top)
+    │   BatteryPack  │ 🟢 Cell 5
+    │                │ 🟢 Cell 4
+    │                │ 🟢 Cell 3
+    │                │ 🟢 Cell 2
+    └────────────────┘ 🟢 Cell 1 (bottom)
+                      ↑
+                      Offset 0.6 to the right
+
+
+═══════════════════════════════════════════════════════════════════════
+SUMMARY
+═══════════════════════════════════════════════════════════════════════
+
+✅ Cell Offset set to (0.6, 0, 0) - Cells positioned to the right
+✅ Cell Rotation set to (0, 90, 0) - Cells rotated 90 degrees
+✅ Cell Container Scale set to (5, 5, 5) - Cells 5x larger
+✅ Changes apply automatically on next Play mode!
+
+Just press Play and your battery cells will appear at:
+    Position: (0.6, 0, 0)
+    Rotation: (0, 90, 0)
+    Scale: (5, 5, 5)
+
+Perfect for your battery pack! 🔋✨

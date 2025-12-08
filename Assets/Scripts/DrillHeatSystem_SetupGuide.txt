@@ -1,0 +1,299 @@
+═══════════════════════════════════════════════════════════════
+DRILL HEAT SYSTEM - SETUP GUIDE
+═══════════════════════════════════════════════════════════════
+
+This guide will help you add smoke particles, burning wood smell effects, 
+and drill bit overheating glow to your VR drilling system.
+
+═══════════════════════════════════════════════════════════════
+QUICK SETUP (Automatic Particle Creation)
+═══════════════════════════════════════════════════════════════
+
+1. Select the "DummyDrill-Rigged" GameObject in your scene
+
+2. Add the "DrillParticleSetup" component:
+   - In Inspector, click "Add Component"
+   - Search for "DrillParticleSetup"
+   - Click to add it
+
+3. Assign the Drill Bit Tip reference:
+   - Drag "Drillbit" from hierarchy to "Drill Bit Tip" field
+   - Path: DummyDrill-Rigged/Model/RotatingHead/Drill holder/Drillbit
+
+4. Click the three dots menu on the component
+   - Select "Setup Particle Systems"
+   - This will automatically create both particle systems!
+
+5. Add the "DrillHeatSystem" component:
+   - Click "Add Component" again
+   - Search for "DrillHeatSystem"
+   - The component will auto-detect the newly created particles
+
+6. Remove the "DrillParticleSetup" component (no longer needed)
+
+═══════════════════════════════════════════════════════════════
+MANUAL SETUP (Custom Particle Systems)
+═══════════════════════════════════════════════════════════════
+
+If you want to create custom particle systems:
+
+1. Create Smoke Particles:
+   - Right-click on "Drillbit" in hierarchy
+   - Effects > Particle System
+   - Rename to "SmokeParticles"
+   - Configure as described in "Particle Settings" section below
+
+2. Create Burning Smell Particles:
+   - Right-click on "Drillbit" again
+   - Effects > Particle System
+   - Rename to "BurningSmellParticles"
+   - Configure as described in "Particle Settings" section below
+
+3. Add DrillHeatSystem component to "DummyDrill-Rigged"
+
+4. Assign references in DrillHeatSystem Inspector:
+   - Drill Bit Tip: Drillbit
+   - Drill Bit Renderer: Drillbit (MeshRenderer)
+   - Material Index: 0 (or the index of your drill bit material)
+   - Smoke Particles: SmokeParticles
+   - Burning Smell Particles: BurningSmellParticles
+
+═══════════════════════════════════════════════════════════════
+COMPONENT SETTINGS
+═══════════════════════════════════════════════════════════════
+
+HEAT SETTINGS:
+- Current Heat: 0 (will change during gameplay)
+- Max Heat: 100
+- Heat Increase Rate: 8 (how fast it heats up when drilling)
+- Cool Down Rate: 3 (how fast it cools when not drilling)
+- Overheating Threshold: 70 (when smoke appears)
+- Burning Threshold: 50 (when burning smell appears)
+
+GLOW EFFECT:
+- Cool Color: Gray (0.5, 0.5, 0.5)
+- Warm Color: Orange (1, 0.5, 0)
+- Hot Color: Red (1, 0.1, 0)
+- Max Glow Intensity: 3
+- Use Emission Glow: ✓ (check this for material glow)
+- Max Emission Intensity: 2
+
+PARTICLE EFFECTS:
+- Smoke Particles: Auto-assigned if using setup script
+- Burning Smell Particles: Auto-assigned if using setup script
+
+═══════════════════════════════════════════════════════════════
+PARTICLE SETTINGS (For Manual Setup)
+═══════════════════════════════════════════════════════════════
+
+SMOKE PARTICLES:
+Main Module:
+- Duration: 5
+- Looping: ✓
+- Start Lifetime: 1.5 - 3.0
+- Start Speed: 0.3 - 0.8
+- Start Size: 0.05 - 0.15
+- Start Color: Gray (0.4, 0.4, 0.4, 0.8)
+- Gravity Modifier: -0.2
+- Simulation Space: World
+- Play On Awake: ✗
+
+Emission:
+- Rate over Time: 20
+
+Shape:
+- Shape: Cone
+- Angle: 15
+- Radius: 0.02
+- Rotation: (-90, 0, 0)
+
+Color over Lifetime:
+- Enable ✓
+- Start: Gray (0.5, 0.5, 0.5, 0.8)
+- End: Dark Gray (0.3, 0.3, 0.3, 0.0)
+
+Size over Lifetime:
+- Enable ✓
+- Curve: 0.3 → 1.0 → 1.5
+
+Renderer:
+- Render Mode: Billboard
+- Material: Default Particle Material (or URP/Particles/Unlit)
+
+─────────────────────────────────────────────────────────────
+
+BURNING SMELL PARTICLES:
+Main Module:
+- Duration: 5
+- Looping: ✓
+- Start Lifetime: 2.0 - 4.0
+- Start Speed: 0.1 - 0.3
+- Start Size: 0.03 - 0.08
+- Start Color: Orange-Yellow (0.8, 0.6, 0.3, 0.6)
+- Gravity Modifier: -0.1
+- Simulation Space: World
+- Play On Awake: ✗
+
+Emission:
+- Rate over Time: 10
+
+Shape:
+- Shape: Sphere
+- Radius: 0.03
+
+Color over Lifetime:
+- Enable ✓
+- Start: Light Orange (0.9, 0.7, 0.4)
+- Mid: Brown (0.6, 0.5, 0.3)
+- End: Gray (0.4, 0.4, 0.4, 0.0)
+
+Velocity over Lifetime:
+- Enable ✓
+- Space: World
+- X: -0.1 to 0.1
+- Y: 0.2 to 0.4
+- Z: -0.1 to 0.1
+
+Size over Lifetime:
+- Enable ✓
+- Curve: 0.5 → 1.0 → 0.8
+
+Noise:
+- Enable ✓
+- Strength: 0.3
+- Frequency: 1.0
+- Scroll Speed: 0.5
+
+Renderer:
+- Render Mode: Billboard
+- Material: Default Particle Material (or URP/Particles/Unlit)
+
+═══════════════════════════════════════════════════════════════
+HOW IT WORKS
+═══════════════════════════════════════════════════════════════
+
+1. HEAT ACCUMULATION:
+   - When you drill wood, heat increases based on trigger pressure
+   - Higher pressure = faster heating
+   - When not drilling, the drill bit cools down automatically
+
+2. BURNING SMELL (50% heat):
+   - Light wisps of yellowish smoke appear
+   - Represents wood starting to burn from friction
+   - Gets more intense as heat increases
+
+3. OVERHEATING SMOKE (70% heat):
+   - Thicker gray smoke starts appearing
+   - Indicates the drill bit is too hot
+   - More smoke = higher temperature
+
+4. VISUAL GLOW:
+   - Drill bit starts glowing orange at medium heat
+   - Becomes bright red when very hot
+   - Point light illuminates nearby surfaces
+   - Material emission makes drill bit "hot metal" appearance
+
+5. COOLING:
+   - Stop drilling to let the bit cool down
+   - Effects gradually fade as temperature drops
+   - All particles and glow disappear when fully cooled
+
+═══════════════════════════════════════════════════════════════
+CUSTOMIZATION TIPS
+═══════════════════════════════════════════════════════════════
+
+To make it heat up faster:
+- Increase "Heat Increase Rate" (try 12-15)
+
+To make it stay hot longer:
+- Decrease "Cool Down Rate" (try 1-2)
+
+To make effects appear sooner:
+- Lower "Burning Threshold" (try 30)
+- Lower "Overheating Threshold" (try 50)
+
+To make glow more intense:
+- Increase "Max Glow Intensity" (try 5-8)
+- Increase "Max Emission Intensity" (try 3-5)
+
+For more smoke:
+- Increase particle emission rates in particle systems
+- In SmokeParticles: Emission → Rate over Time: 40-60
+
+For more dramatic burning effect:
+- Increase particle lifetimes
+- Make particles larger
+- Add Trail module to particles
+
+═══════════════════════════════════════════════════════════════
+TROUBLESHOOTING
+═══════════════════════════════════════════════════════════════
+
+Q: Particles not appearing?
+A: Check that:
+   - Particle systems are children of Drillbit
+   - "Play On Awake" is unchecked
+   - DrillHeatSystem references are assigned
+   - SG_TriggerLogic component exists on DummyDrill-Rigged
+
+Q: No glow effect?
+A: Check that:
+   - Drill Bit Renderer is assigned
+   - Material Index is correct (usually 0)
+   - "Use Emission Glow" is checked
+   - Material has "_EmissionColor" property
+
+Q: Effects appear in wrong location?
+A: Make sure:
+   - Particle GameObjects are children of Drillbit
+   - Local position is set to (0, 0, 0)
+   - "Drill Bit Tip" reference points to Drillbit
+
+Q: Heat increases too fast/slow?
+A: Adjust these values:
+   - Heat Increase Rate: 4-12 (default: 8)
+   - Cool Down Rate: 1-5 (default: 3)
+   - Check that SG_TriggerLogic is working correctly
+
+Q: Particles look wrong in VR?
+A: Make sure:
+   - Simulation Space is set to "World"
+   - Particle material uses URP shader
+   - Particles are not too large (scale down if needed)
+
+═══════════════════════════════════════════════════════════════
+ADVANCED: Adding Audio Effects
+═══════════════════════════════════════════════════════════════
+
+To add sizzling/overheating sounds:
+
+1. Add an AudioSource to DummyDrill-Rigged:
+   - Name it "HeatAudioSource"
+
+2. In DrillHeatSystem component:
+   - Assign "Heat Audio Source" reference
+   - Drag sizzling sound to "Overheating Sound"
+   - Drag burning sound to "Sizzle Sound"
+
+3. Audio will play automatically when overheating!
+
+═══════════════════════════════════════════════════════════════
+FINAL CHECKLIST
+═══════════════════════════════════════════════════════════════
+
+□ DrillHeatSystem component added to DummyDrill-Rigged
+□ SG_TriggerLogic exists on DummyDrill-Rigged
+□ Drill Bit Tip reference assigned (Drillbit GameObject)
+□ Smoke particles created and assigned
+□ Burning smell particles created and assigned
+□ Drill Bit Renderer assigned
+□ Material Index set correctly
+□ "Use Emission Glow" enabled
+□ Tested in Play mode - drill heats up when touching wood
+□ Particles appear when hot
+□ Glow effect visible on drill bit
+□ Everything cools down when not drilling
+
+═══════════════════════════════════════════════════════════════
+
+Enjoy your enhanced VR drilling experience! 🔥

@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   intendedMotor: 8
   amplitude: 1
-  waveformType: 6
+  waveformType: 1
   attackTime: 0
   sustainTime: 1
   decayTime: 0

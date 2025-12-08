@@ -1,0 +1,292 @@
+═══════════════════════════════════════════════════════════════════════
+BATTERY CELL INDICATOR - VISUAL GUIDE
+═══════════════════════════════════════════════════════════════════════
+
+WHAT IT LOOKS LIKE:
+═══════════════════════════════════════════════════════════════════════
+
+Just like the reference image - individual glowing cells/segments inside
+the battery pack that light up based on charge level!
+
+    ┌─────────────────────────────────────┐
+    │ ▓▓ ▓▓ ▓▓ ▓▓ ▓▓ ▓▓ │  BatteryPack  │
+    │ 🟢 🟢 🟢 🟢 🟢 🟢 │  (gray shell) │
+    └─────────────────────────────────────┘
+         6 cells all lit up (100%)
+
+
+CHARGE LEVELS:
+═══════════════════════════════════════════════════════════════════════
+
+100% (6/6 cells):  🟢🟢🟢🟢🟢🟢  All green, full charge
+83%  (5/6 cells):  🟢🟢🟢🟢🟢⚫  5 green, 1 empty
+67%  (4/6 cells):  🟢🟢🟢🟢⚫⚫  4 green, 2 empty
+50%  (3/6 cells):  🟡🟡🟡⚫⚫⚫  3 yellow, 3 empty
+33%  (2/6 cells):  🟡🟡⚫⚫⚫⚫  2 yellow, 4 empty
+17%  (1/6 cells):  🔴⚫⚫⚫⚫⚫  1 red (blinking!), 5 empty
+0%   (0/6 cells):  ⚫⚫⚫⚫⚫⚫  All empty/dark
+
+
+═══════════════════════════════════════════════════════════════════════
+HOW IT WORKS
+═══════════════════════════════════════════════════════════════════════
+
+AUTOMATIC SETUP:
+────────────────────────────────────────────────────────────────────────
+
+When you enter Play mode, the system automatically:
+    1. Creates 6 small cube objects (cells) inside BatteryPack
+    2. Arranges them in a row
+    3. Makes them glow with emission
+    4. Updates colors based on battery charge
+
+
+BATTERY DRAINS:
+────────────────────────────────────────────────────────────────────────
+
+As battery drains:
+    100% → 🟢🟢🟢🟢🟢🟢  All cells green
+    80%  → 🟢🟢🟢🟢🟢⚫  Right cell turns off
+    60%  → 🟢🟢🟢🟢⚫⚫  Another cell off, color → yellow
+    40%  → 🟡🟡⚫⚫⚫⚫  Half cells off
+    30%  → 🟡🟡⚫⚫⚫⚫  Color → red
+    20%  → 🔴⚫⚫⚫⚫⚫  ONE red cell blinking!
+    0%   → ⚫⚫⚫⚫⚫⚫  All dark
+
+
+═══════════════════════════════════════════════════════════════════════
+SETUP (ALREADY DONE!)
+═══════════════════════════════════════════════════════════════════════
+
+If you already added BatteryLevelIndicator to BatteryPack:
+    ✅ You're done!
+    ✅ Just press Play and cells will auto-create!
+
+The BatteryPack will now have child objects:
+    BatteryPack
+    └── BatteryCells (parent)
+        ├── BatteryCell_1 🟢
+        ├── BatteryCell_2 🟢
+        ├── BatteryCell_3 🟢
+        ├── BatteryCell_4 🟢
+        ├── BatteryCell_5 🟢
+        └── BatteryCell_6 🟢
+
+
+═══════════════════════════════════════════════════════════════════════
+CUSTOMIZATION
+═══════════════════════════════════════════════════════════════════════
+
+Select BatteryPack → BatteryLevelIndicator component:
+
+[Cell Settings]
+────────────────────────────────────────────────────────────────────────
+Number Of Cells: 6           ← More cells = finer resolution
+Cell Size: (0.01, 0.02, 0.008)  ← How big each cell is
+Cell Spacing: 0.012          ← Distance between cells
+Cell Offset: (0, 0, 0)       ← Position offset from center
+
+[Battery Colors]
+────────────────────────────────────────────────────────────────────────
+High Charge Color: Green (0, 1, 0)      → 60-100%
+Medium Charge Color: Yellow (1, 1, 0)   → 30-60%
+Low Charge Color: Red (1, 0, 0)         → 0-30%
+Empty Color: Dark Gray (0.2, 0.2, 0.2)  → Empty cells
+
+[Emission Settings]
+────────────────────────────────────────────────────────────────────────
+High Charge Emission: 3      ← Very bright green glow
+Medium Charge Emission: 2    ← Medium yellow glow
+Low Charge Emission: 1.5     ← Dimmer red glow
+Empty Emission: 0.2          ← Barely visible when empty
+
+[Animation]
+────────────────────────────────────────────────────────────────────────
+☑ Enable Blink When Low      ← Red cells blink
+Blink Speed: 3               ← How fast they blink
+
+[Auto Setup]
+────────────────────────────────────────────────────────────────────────
+☑ Auto Create Cells          ← Creates cells automatically
+
+
+═══════════════════════════════════════════════════════════════════════
+POSITIONING THE CELLS
+═══════════════════════════════════════════════════════════════════════
+
+If cells are not visible or in wrong position:
+
+1. ENTER PLAY MODE FIRST
+   (Cells only exist in Play mode!)
+
+2. Select "BatteryPack" in Hierarchy
+
+3. Expand to see "BatteryCells" child
+
+4. Adjust "Cell Offset" in Inspector:
+   
+   Move forward:  Cell Offset: (0, 0, 0.01)
+   Move back:     Cell Offset: (0, 0, -0.01)
+   Move up:       Cell Offset: (0, 0.01, 0)
+   Move down:     Cell Offset: (0, -0.01, 0)
+   Move right:    Cell Offset: (0.01, 0, 0)
+   Move left:     Cell Offset: (-0.01, 0, 0)
+
+5. Stop Play mode and cells will regenerate with new offset next time!
+
+
+ADJUST SIZE:
+────────────────────────────────────────────────────────────────────────
+
+Cell Size controls dimensions:
+    (width, height, depth)
+
+Bigger cells:     (0.015, 0.03, 0.012)
+Smaller cells:    (0.008, 0.015, 0.006)
+Thinner cells:    (0.01, 0.02, 0.004)  ← Like bars
+Taller cells:     (0.01, 0.03, 0.008)
+
+
+ADJUST SPACING:
+────────────────────────────────────────────────────────────────────────
+
+Cell Spacing controls gap between cells:
+
+Closer together:  0.008
+Further apart:    0.02
+Touching:         (same as cell width)
+
+
+═══════════════════════════════════════════════════════════════════════
+EXAMPLES
+═══════════════════════════════════════════════════════════════════════
+
+MORE CELLS (FINER RESOLUTION):
+────────────────────────────────────────────────────────────────────────
+Number Of Cells: 10
+Cell Spacing: 0.008
+
+Result:
+    🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢  100%
+    🟢🟢🟢🟢🟢🟢🟢🟢🟢⚫  90%
+    🟢🟢🟢🟢🟢🟢🟢🟢⚫⚫  80%
+    (smoother transitions!)
+
+
+FEWER CELLS (CHUNKY):
+────────────────────────────────────────────────────────────────────────
+Number Of Cells: 3
+
+Result:
+    🟢🟢🟢  100%
+    🟢🟢⚫  67%
+    🟢⚫⚫  33%
+    ⚫⚫⚫  0%
+
+
+VERTICAL CELLS:
+────────────────────────────────────────────────────────────────────────
+Number Of Cells: 5
+Cell Size: (0.02, 0.008, 0.008)  ← Wide and flat
+Adjust orientation in Scene view if needed
+
+
+═══════════════════════════════════════════════════════════════════════
+VISUAL TIMELINE
+═══════════════════════════════════════════════════════════════════════
+
+DRILLING CONTINUOUSLY (50 seconds total):
+────────────────────────────────────────────────────────────────────────
+
+0s:   100%  🟢🟢🟢🟢🟢🟢  All cells bright green
+      Battery: Full power!
+
+8s:   83%   🟢🟢🟢🟢🟢⚫  1 cell goes dark
+      Battery: Still great!
+
+17s:  67%   🟢🟢🟢🟢⚫⚫  2 cells dark
+      Battery: Good
+
+25s:  50%   🟡🟡🟡⚫⚫⚫  Color changes to YELLOW
+      Battery: Medium, 3 cells lit
+
+33s:  33%   🟡🟡⚫⚫⚫⚫  2 yellow cells
+      Battery: Getting low
+
+42s:  17%   🔴⚫⚫⚫⚫⚫  Color RED + BLINKING!
+      Battery: Almost dead! Warning!
+
+50s:  0%    ⚫⚫⚫⚫⚫⚫  All cells dark
+      Battery: DEAD! Drill stops!
+
+
+═══════════════════════════════════════════════════════════════════════
+DEBUGGING
+═══════════════════════════════════════════════════════════════════════
+
+CELLS NOT VISIBLE:
+────────────────────────────────────────────────────────────────────────
+□ Are you in Play mode? (Cells only exist during play!)
+□ Check Cell Size is not too small: try (0.02, 0.03, 0.01)
+□ Adjust Cell Offset to position them outside battery mesh
+□ Check Emission Intensity is high enough: try 5
+
+CELLS IN WRONG LOCATION:
+────────────────────────────────────────────────────────────────────────
+□ Adjust Cell Offset - move them to visible area
+□ In Play mode, select BatteryCells parent to see location
+□ Try rotating cell offset or changing position
+
+CELLS NOT GLOWING:
+────────────────────────────────────────────────────────────────────────
+□ Check Emission Intensity is high (try 5 or 10)
+□ Verify your scene has proper lighting for URP
+□ Check Global Illumination is enabled
+
+TESTING:
+────────────────────────────────────────────────────────────────────────
+
+1. Press Play
+2. Select DummyDrill-Rigged
+3. In DrillBatterySystem, manually change Current Charge:
+   
+   Set to 100: 🟢🟢🟢🟢🟢🟢  All green
+   Set to 50:  🟡🟡🟡⚫⚫⚫  Half yellow
+   Set to 17:  🔴⚫⚫⚫⚫⚫  One red blinking
+   Set to 0:   ⚫⚫⚫⚫⚫⚫  All dark
+
+
+═══════════════════════════════════════════════════════════════════════
+COMPARISON
+═══════════════════════════════════════════════════════════════════════
+
+OLD SYSTEM:
+────────────────────────────────────────────────────────────────────────
+✗ Entire BatteryPack changes color
+✗ Less realistic
+✗ Hard to see precise level
+
+NEW SYSTEM:
+────────────────────────────────────────────────────────────────────────
+✓ Individual cells light up
+✓ Like real battery indicators!
+✓ Clear visual: count lit cells to know charge
+✓ Looks professional
+✓ Matches reference image
+
+
+═══════════════════════════════════════════════════════════════════════
+SUMMARY
+═══════════════════════════════════════════════════════════════════════
+
+Your battery pack now has INDIVIDUAL GLOWING CELLS!
+
+Just like the image:
+    🟢🟢🟢🟢🟢🟢  100% - All cells green
+    🟢🟢🟢🟢⚫⚫  67%  - 4 cells lit
+    🟡🟡⚫⚫⚫⚫  33%  - 2 yellow cells
+    🔴⚫⚫⚫⚫⚫  17%  - 1 red cell (blinking!)
+    ⚫⚫⚫⚫⚫⚫  0%   - All dark
+
+Cells are automatically created and positioned!
+Just press Play and watch them glow! ✨
