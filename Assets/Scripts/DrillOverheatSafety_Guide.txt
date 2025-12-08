@@ -1,0 +1,430 @@
+═══════════════════════════════════════════════════════════════════════
+DRILL OVERHEAT SAFETY SYSTEM - GUIDE
+═══════════════════════════════════════════════════════════════════════
+
+WHAT IS IT:
+═══════════════════════════════════════════════════════════════════════
+
+A safety mechanism that PREVENTS the drill trigger from working when
+the drill becomes overheated. The drill remains LOCKED until it cools
+down to a safe temperature (warm color threshold).
+
+Just like a real power drill that has thermal protection! 🔥🛡️
+
+
+═══════════════════════════════════════════════════════════════════════
+HOW IT WORKS
+═══════════════════════════════════════════════════════════════════════
+
+NORMAL OPERATION (Cool → Warm):
+────────────────────────────────────────────────────────────────────────
+1. Flexion 0.3-0.5 range → Trigger activates ✅
+2. Drill works normally
+3. Heat increases: Cool (gray) → Warm (orange) → Hot (red)
+
+
+OVERHEAT OCCURS (Hot Color Reached):
+────────────────────────────────────────────────────────────────────────
+1. Heat reaches 90% (hotColorThreshold)
+2. Drill turns RED, smoke particles appear
+3. 🚨 SAFETY LOCK ENGAGED!
+4. Flexion still works BUT trigger does NOT activate drill
+5. User can squeeze 0.3-0.5 range but drill won't start
+
+
+COOLDOWN REQUIRED (Must Cool to Warm):
+────────────────────────────────────────────────────────────────────────
+1. Heat decreases over time (coolDownRate)
+2. When heat drops to 50% (safetyResetThreshold)
+3. ✅ SAFETY LOCK RELEASED!
+4. Drill can be used again with flexion 0.3-0.5
+
+
+═══════════════════════════════════════════════════════════════════════
+VISUAL TIMELINE
+═══════════════════════════════════════════════════════════════════════
+
+Time    Heat   Color      Safety    Trigger    Visual
+────────────────────────────────────────────────────────────────────────
+0s      0%     Gray       ✅ Open   ✅ Works   Cold drill bit
+10s     50%    Orange     ✅ Open   ✅ Works   Warm glow
+18s     90%    Red        🔒 LOCK   ❌ Blocked Hot + smoke!
+                          ↓
+        Flexion 0.3-0.5 pressed but drill WON'T START!
+        Must wait for cooldown...
+                          ↓
+25s     70%    Red        🔒 LOCK   ❌ Blocked Still cooling
+35s     50%    Orange     ✅ OPEN   ✅ Works   RELEASED!
+                          ↑
+        Now flexion 0.3-0.5 works again!
+
+
+═══════════════════════════════════════════════════════════════════════
+SETTINGS
+═══════════════════════════════════════════════════════════════════════
+
+DrillHeatSystem Component:
+────────────────────────────────────────────────────────────────────────
+
+[Overheat Safety]
+☑ Enable Overheat Safety      ← Turn safety on/off
+Safety Reset Threshold: 50    ← Heat level to unlock (warm color)
+
+[Heat Settings]
+Hot Color Threshold: 90       ← When safety engages
+Warm Color Threshold: 50      ← When safety releases
+
+
+THRESHOLD EXPLANATION:
+────────────────────────────────────────────────────────────────────────
+
+hotColorThreshold = 90%
+    → Safety LOCKS at 90% heat (red hot drill)
+
+safetyResetThreshold = 50%
+    → Safety UNLOCKS at 50% heat (warm orange drill)
+
+This creates HYSTERESIS:
+    Lock at 90% → Must cool to 50% to unlock
+    Prevents rapid lock/unlock flickering
+
+
+═══════════════════════════════════════════════════════════════════════
+BEHAVIOR DETAILS
+═══════════════════════════════════════════════════════════════════════
+
+WHEN LOCKED (Heat ≥ 90%):
+────────────────────────────────────────────────────────────────────────
+✅ Flexion 0.3-0.5 still detected by glove
+✅ Force feedback (FFB) still works
+✅ User can squeeze trigger
+❌ BUT drill motor does NOT activate
+❌ Heat does NOT increase (no drilling)
+❌ Rotation stops
+❌ Carving disabled
+❌ Drill sound stops
+✅ Smoke particles continue (overheating!)
+✅ Visual effects continue (red glow)
+
+
+WHEN UNLOCKED (Heat ≤ 50%):
+────────────────────────────────────────────────────────────────────────
+✅ Flexion 0.3-0.5 activates drill normally
+✅ All drilling functions work
+✅ Heat can increase again
+✅ Rotation works
+✅ Carving works
+✅ Drill sound plays
+
+
+═══════════════════════════════════════════════════════════════════════
+INTEGRATION
+═══════════════════════════════════════════════════════════════════════
+
+TWO-PART SYSTEM:
+────────────────────────────────────────────────────────────────────────
+
+1. DrillHeatSystem.cs:
+   - Tracks safety lock state (isSafetyLocked)
+   - Checks heat thresholds
+   - Provides IsDrillLocked() method
+   - Prevents isDrilling from being true
+
+2. SG_TriggerLogic.cs:
+   - Checks heatSystem.IsDrillLocked()
+   - Sets latestPressure to 0 when locked
+   - Prevents trigger pressure from registering
+
+
+DATA FLOW:
+────────────────────────────────────────────────────────────────────────
+
+User squeezes trigger (flexion 0.3-0.5)
+          ↓
+SG_TriggerLogic.UpdateTriggerPressure()
+          ↓
+Check: heatSystem.IsDrillLocked()?
+          ↓
+    YES (locked)         NO (unlocked)
+          ↓                    ↓
+  latestPressure = 0    latestPressure = flexion value
+          ↓                    ↓
+    Drill OFF          Drill ON
+    No rotation        Rotation works
+    No carving         Carving works
+    No heating         Heat increases
+
+
+═══════════════════════════════════════════════════════════════════════
+CODE IMPLEMENTATION
+═══════════════════════════════════════════════════════════════════════
+
+DrillHeatSystem.cs - Safety Lock Logic:
+────────────────────────────────────────────────────────────────────────
+
+void UpdateSafetyLock()
+{
+    if (!enableOverheatSafety) return;
+
+    // LOCK when reaching hot threshold
+    if (currentHeat >= hotColorThreshold && !isSafetyLocked)
+    {
+        isSafetyLocked = true;
+        Debug.Log("🚨 SAFETY ENGAGED!");
+    }
+    // UNLOCK when cooled to safe threshold
+    else if (currentHeat <= safetyResetThreshold && isSafetyLocked)
+    {
+        isSafetyLocked = false;
+        Debug.Log("✅ SAFETY RELEASED!");
+    }
+}
+
+public bool IsDrillLocked()
+{
+    return enableOverheatSafety && isSafetyLocked;
+}
+
+
+DrillHeatSystem.cs - Prevent Drilling When Locked:
+────────────────────────────────────────────────────────────────────────
+
+void Update()
+{
+    // Check if drill is locked BEFORE allowing drilling
+    bool isDrilling = triggerLogic.CurrentPressure > 0.1f && !IsDrillLocked();
+    
+    // Only increase heat if actually drilling
+    if (isDrilling)
+    {
+        currentHeat += heatIncreaseRate * Time.deltaTime;
+    }
+    else
+    {
+        currentHeat -= coolDownRate * Time.deltaTime;
+    }
+}
+
+
+SG_TriggerLogic.cs - Block Trigger When Locked:
+────────────────────────────────────────────────────────────────────────
+
+private void UpdateTriggerPressure()
+{
+    // Calculate raw pressure from flexion
+    float rawPressure = Mathf.InverseLerp(startFlexion, endFlexion, currFlex);
+
+    // Check heat system safety lock
+    if (heatSystem != null && heatSystem.IsDrillLocked())
+    {
+        latestPressure = 0f;  // BLOCKED!
+    }
+    else
+    {
+        latestPressure = rawPressure;  // ALLOWED
+    }
+}
+
+
+═══════════════════════════════════════════════════════════════════════
+TESTING GUIDE
+═══════════════════════════════════════════════════════════════════════
+
+TEST 1: Normal Operation
+────────────────────────────────────────────────────────────────────────
+1. Start with cold drill (heat = 0)
+2. Squeeze trigger (flexion 0.3-0.5)
+3. ✅ Drill should work normally
+4. Heat increases, color changes: gray → orange → red
+
+
+TEST 2: Overheat Lock
+────────────────────────────────────────────────────────────────────────
+1. Drill continuously until heat reaches 90%
+2. Drill turns RED, smoke appears
+3. 🚨 See debug log: "SAFETY ENGAGED!"
+4. Keep squeezing trigger (flexion 0.3-0.5)
+5. ❌ Drill should NOT work
+6. Heat should STOP increasing
+7. Rotation should STOP
+8. Drill sound should STOP
+
+
+TEST 3: Cooldown and Release
+────────────────────────────────────────────────────────────────────────
+1. While overheated (locked), release trigger
+2. Wait for cooldown (heat decreases)
+3. Watch heat go from 90% → 70% → 50%
+4. ✅ See debug log: "SAFETY RELEASED!" at 50%
+5. Squeeze trigger again (flexion 0.3-0.5)
+6. ✅ Drill should work again!
+
+
+TEST 4: Quick Check in Inspector
+────────────────────────────────────────────────────────────────────────
+In Play mode:
+1. Select DummyDrill-Rigged
+2. Find DrillHeatSystem component
+3. Manually set Current Heat: 95
+4. Try squeezing trigger → ❌ Should NOT work
+5. Set Current Heat: 45
+6. Try squeezing trigger → ✅ Should work!
+
+
+═══════════════════════════════════════════════════════════════════════
+DEBUG LOGS
+═══════════════════════════════════════════════════════════════════════
+
+Enable Debug Logs in DrillHeatSystem:
+────────────────────────────────────────────────────────────────────────
+☑ Enable Debug Logs
+
+You'll see:
+────────────────────────────────────────────────────────────────────────
+[DrillHeatSystem] Pressure: 0.85, isDrilling: True, Heat: 45.2, SafetyLocked: False
+[DrillHeatSystem] Pressure: 0.85, isDrilling: True, Heat: 89.8, SafetyLocked: False
+[DrillHeatSystem] 🚨 SAFETY ENGAGED! Drill locked until cooled to 50°
+[DrillHeatSystem] Pressure: 0.85, isDrilling: False, Heat: 91.2, SafetyLocked: True
+[DrillHeatSystem] Pressure: 0.85, isDrilling: False, Heat: 65.4, SafetyLocked: True
+[DrillHeatSystem] ✅ SAFETY RELEASED! Drill operational again.
+[DrillHeatSystem] Pressure: 0.85, isDrilling: True, Heat: 49.8, SafetyLocked: False
+
+
+═══════════════════════════════════════════════════════════════════════
+CUSTOMIZATION
+═══════════════════════════════════════════════════════════════════════
+
+LONGER LOCK TIME (Stricter Safety):
+────────────────────────────────────────────────────────────────────────
+Safety Reset Threshold: 30    ← Must cool to 30% to unlock
+
+
+SHORTER LOCK TIME (Looser Safety):
+────────────────────────────────────────────────────────────────────────
+Safety Reset Threshold: 70    ← Unlocks at 70% (still quite hot)
+
+
+EARLIER LOCK (More Protective):
+────────────────────────────────────────────────────────────────────────
+Hot Color Threshold: 70       ← Locks at 70% instead of 90%
+
+
+DISABLE SAFETY (For Testing):
+────────────────────────────────────────────────────────────────────────
+☐ Enable Overheat Safety      ← Uncheck to disable
+
+
+═══════════════════════════════════════════════════════════════════════
+USER EXPERIENCE
+═══════════════════════════════════════════════════════════════════════
+
+WHAT USER FEELS:
+────────────────────────────────────────────────────────────────────────
+
+1. NORMAL DRILLING:
+   - Squeeze trigger → Drill activates ✅
+   - Force feedback on finger
+   - Drill sound and rotation
+   - Heat builds up gradually
+
+2. OVERHEAT OCCURS:
+   - Drill turns RED and starts smoking
+   - Squeeze trigger → Nothing happens! ❌
+   - Force feedback still works (can feel squeeze)
+   - But drill motor won't start
+   - Realizes: "Oh, it's too hot!"
+
+3. WAITING FOR COOLDOWN:
+   - Must stop and wait
+   - Watch drill cool down (red → orange)
+   - Smoke stops when cooled enough
+   - Can try trigger periodically
+
+4. DRILL READY AGAIN:
+   - Color returns to orange (warm)
+   - Squeeze trigger → Works again! ✅
+   - Can resume drilling
+
+
+REALISTIC BEHAVIOR:
+────────────────────────────────────────────────────────────────────────
+
+This mimics real power drill behavior:
+✅ Thermal protection systems
+✅ Must cool down before restarting
+✅ Prevents motor damage from overheating
+✅ Forces user to take breaks
+✅ Teaches proper tool usage
+
+
+═══════════════════════════════════════════════════════════════════════
+COMBINED WITH OTHER SYSTEMS
+═══════════════════════════════════════════════════════════════════════
+
+OVERHEAT SAFETY + BATTERY SYSTEM:
+────────────────────────────────────────────────────────────────────────
+
+Drill won't work if:
+    ❌ Battery is empty (0%)
+    ❌ Drill is overheated (≥90% heat)
+
+Both must be OK for drill to work:
+    ✅ Battery has charge (>0%)
+    ✅ Drill is cool enough (<90% or cooled to <50%)
+
+
+OVERHEAT SAFETY + HAPTIC LOCK:
+────────────────────────────────────────────────────────────────────────
+
+When overheated:
+    🔒 Safety Lock → Trigger won't activate drill
+    🔒 Haptic Lock → endFlexion reduced (0.5 → 0.3)
+
+Both work together:
+    - Haptic makes finger stop earlier (physical feedback)
+    - Safety prevents drill activation (software protection)
+
+
+═══════════════════════════════════════════════════════════════════════
+TROUBLESHOOTING
+═══════════════════════════════════════════════════════════════════════
+
+DRILL WON'T START EVEN WHEN COOL:
+────────────────────────────────────────────────────────────────────────
+□ Check heat level is below 50%
+□ Check battery isn't empty
+□ Verify Enable Overheat Safety is checked
+□ Check SG_TriggerLogic has heatSystem reference
+□ Enable debug logs to see safety state
+
+
+DRILL STILL WORKS WHEN OVERHEATED:
+────────────────────────────────────────────────────────────────────────
+□ Verify Enable Overheat Safety is checked
+□ Check SG_TriggerLogic component has DrillHeatSystem reference
+□ Enable debug logs to see if safety engages
+□ Check hotColorThreshold setting (should be 90)
+
+
+SAFETY NEVER RELEASES:
+────────────────────────────────────────────────────────────────────────
+□ Check safetyResetThreshold isn't too low
+□ Verify coolDownRate isn't 0
+□ Wait longer for cooldown (may take 30+ seconds)
+□ Check debug logs for "SAFETY RELEASED" message
+
+
+═══════════════════════════════════════════════════════════════════════
+SUMMARY
+═══════════════════════════════════════════════════════════════════════
+
+✅ Overheat safety prevents drill activation when too hot
+✅ Flexion 0.3-0.5 still detected but won't trigger drill
+✅ Safety engages at 90% heat (red hot)
+✅ Safety releases at 50% heat (warm orange)
+✅ Hysteresis prevents flickering (90% lock → 50% unlock)
+✅ Combined with battery system for dual protection
+✅ Realistic behavior like real power tool thermal protection
+✅ Forces proper usage and cooling breaks
+
+The drill is now SAFER and more REALISTIC! 🔥🛡️✨

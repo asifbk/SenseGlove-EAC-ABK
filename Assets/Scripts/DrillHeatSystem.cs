@@ -1,4 +1,5 @@
 using UnityEngine;
+using SG;
 
 public class DrillHeatSystem : MonoBehaviour
 {
@@ -9,6 +10,12 @@ public class DrillHeatSystem : MonoBehaviour
     public float coolDownRate = 3f;
     public float warmColorThreshold = 50f;
     public float hotColorThreshold = 90f;
+
+    [Header("Manual Temperature Control")]
+    public bool enableManualHeatControl = false;
+    [Range(0, 100)] public float manualHeatValue = 0f;
+    [Tooltip("Time in seconds to reach max heat when drilling continuously")]
+    public float timeToMaxHeat = 20f;
 
     [Header("Drill Bit References")]
     public Transform drillBitTip;
@@ -39,18 +46,25 @@ public class DrillHeatSystem : MonoBehaviour
     [Header("Debug")]
     public bool enableDebugLogs = false;
 
-    [Header("Haptic Feedback")]
-    public bool enableHapticLock = true;
-    public float normalEndFlexion = 0.5f;
-    public float lockedEndFlexion = 0.3f;
+    [Header("Overheat Safety")]
+    public bool enableOverheatSafety = true;
+    public float safetyResetThreshold = 50f;
+
+    [Header("SenseGlove Finger Lock")]
+    public bool enableFingerLock = true;
+    public SG_TrackedHand trackedHand;
+    [Range(0f, 1f)] public float indexFingerLockForce = 1f;
 
     [Header("Battery Integration")]
     public DrillBatterySystem batterySystem;
 
     private SG_TriggerLogic triggerLogic;
+    private SG_HapticGlove hapticGlove;
+    private SGCore.HapticGlove internalGlove;
     private bool isOverheating = false;
     private bool isBurning = false;
-    private bool isFlexionLocked = false;
+    private bool isFingerLocked = false;
+    private bool isSafetyLocked = false;
     private Material drillBitMaterial;
     private Color originalEmissionColor;
     private bool hasEmission = false;
@@ -63,6 +77,40 @@ public class DrillHeatSystem : MonoBehaviour
     {
         triggerLogic = GetComponent<SG_TriggerLogic>();
         
+        if (trackedHand != null)
+        {
+            hapticGlove = trackedHand.GetComponent<SG_HapticGlove>();
+            if (hapticGlove != null)
+            {
+                internalGlove = (SGCore.HapticGlove)hapticGlove.InternalGlove;
+            }
+        }
+
+        if (triggerLogic != null)
+        {
+            if (triggerLogic.grabable != null && triggerLogic.grabable.ScriptsGrabbingMe().Count > 0)
+            {
+                trackedHand = triggerLogic.grabable.ScriptsGrabbingMe()[0].TrackedHand;
+                hapticGlove = trackedHand.GetComponent<SG_HapticGlove>();
+                if (hapticGlove != null)
+                {
+                    internalGlove = (SGCore.HapticGlove)hapticGlove.InternalGlove;
+                }
+            }
+        }
+
+        if (enableDebugLogs)
+        {
+            Debug.Log($"[DrillHeatSystem] Initialized. TrackedHand: {trackedHand != null}, HapticGlove: {hapticGlove != null}");
+        }
+
+        heatIncreaseRate = maxHeat / timeToMaxHeat;
+
+        if (batterySystem == null)
+        {
+            batterySystem = GetComponent<DrillBatterySystem>();
+        }
+
         if (drillBitTip == null && triggerLogic != null)
         {
             drillBitTip = triggerLogic.CurrentDrillTip;
@@ -109,16 +157,15 @@ public class DrillHeatSystem : MonoBehaviour
             burningSmellParticlesOriginalOffset = burningSmellParticles.transform.localPosition;
             burningSmellParticlesOriginalRotation = burningSmellParticles.transform.localRotation;
         }
-
-        if (batterySystem == null)
-        {
-            batterySystem = GetComponent<DrillBatterySystem>();
-        }
     }
 
     void Update()
     {
-        if (triggerLogic != null)
+        if (enableManualHeatControl)
+        {
+            currentHeat = manualHeatValue;
+        }
+        else if (triggerLogic != null)
         {
             if (drillBitTip == null || drillBitTip != triggerLogic.CurrentDrillTip)
             {
@@ -126,7 +173,7 @@ public class DrillHeatSystem : MonoBehaviour
                 UpdateDrillBitReferences();
             }
 
-            bool isDrilling = triggerLogic.CurrentPressure > 0.1f;
+            bool isDrilling = triggerLogic.CurrentPressure > 0.1f && !IsDrillLocked();
 
             if (batterySystem != null && !batterySystem.CanDrill())
             {
@@ -135,7 +182,7 @@ public class DrillHeatSystem : MonoBehaviour
 
             if (enableDebugLogs && Time.frameCount % 60 == 0)
             {
-                Debug.Log($"[DrillHeatSystem] Pressure: {triggerLogic.CurrentPressure:F2}, isDrilling: {isDrilling}, Heat: {currentHeat:F1}");
+                Debug.Log($"[DrillHeatSystem] Pressure: {triggerLogic.CurrentPressure:F2}, isDrilling: {isDrilling}, Heat: {currentHeat:F1}, SafetyLocked: {isSafetyLocked}, FingerLocked: {isFingerLocked}");
             }
 
             if (isDrilling)
@@ -164,10 +211,11 @@ public class DrillHeatSystem : MonoBehaviour
 
         currentHeat = Mathf.Clamp(currentHeat, 0, maxHeat);
 
+        UpdateSafetyLock();
+        UpdateFingerLock();
         UpdateVisualEffects();
         UpdateParticleEffects();
         UpdateAudioEffects();
-        UpdateHapticLock();
     }
 
     void UpdateDrillBitReferences()
@@ -234,31 +282,49 @@ public class DrillHeatSystem : MonoBehaviour
     void UpdateVisualEffects()
     {
         float heatPercent = currentHeat / maxHeat;
+        float warmPercent = warmColorThreshold / maxHeat;
 
         if (drillBitGlow != null)
         {
-            drillBitGlow.intensity = Mathf.Lerp(0, maxGlowIntensity, heatPercent);
-            
-            if (heatPercent < 0.3f)
+            if (currentHeat < warmColorThreshold)
+            {
+                drillBitGlow.intensity = 0f;
                 drillBitGlow.color = coolColor;
-            else if (heatPercent < 0.7f)
-                drillBitGlow.color = Color.Lerp(coolColor, warmColor, (heatPercent - 0.3f) / 0.4f);
+            }
             else
-                drillBitGlow.color = Color.Lerp(warmColor, hotColor, (heatPercent - 0.7f) / 0.3f);
+            {
+                float adjustedPercent = (heatPercent - warmPercent) / (1f - warmPercent);
+                drillBitGlow.intensity = Mathf.Lerp(0, maxGlowIntensity, adjustedPercent);
+                
+                if (adjustedPercent < 0.5f)
+                    drillBitGlow.color = Color.Lerp(warmColor, hotColor, adjustedPercent * 2f);
+                else
+                    drillBitGlow.color = hotColor;
+            }
         }
 
         if (useEmissionGlow && hasEmission && drillBitMaterial != null)
         {
             Color emissionColor;
+            float emissionIntensity;
             
-            if (heatPercent < 0.3f)
+            if (currentHeat < warmColorThreshold)
+            {
                 emissionColor = originalEmissionColor;
-            else if (heatPercent < 0.7f)
-                emissionColor = Color.Lerp(originalEmissionColor, warmColor, (heatPercent - 0.3f) / 0.4f);
+                emissionIntensity = 0f;
+            }
             else
-                emissionColor = Color.Lerp(warmColor, hotColor, (heatPercent - 0.7f) / 0.3f);
+            {
+                float adjustedPercent = (heatPercent - warmPercent) / (1f - warmPercent);
+                
+                if (adjustedPercent < 0.5f)
+                    emissionColor = Color.Lerp(warmColor, hotColor, adjustedPercent * 2f);
+                else
+                    emissionColor = hotColor;
+                    
+                emissionIntensity = Mathf.Lerp(0, maxEmissionIntensity, adjustedPercent);
+            }
 
-            float emissionIntensity = Mathf.Lerp(0, maxEmissionIntensity, heatPercent);
             drillBitMaterial.SetColor("_EmissionColor", emissionColor * emissionIntensity);
             drillBitMaterial.EnableKeyword("_EMISSION");
         }
@@ -344,37 +410,114 @@ public class DrillHeatSystem : MonoBehaviour
         return isBurning;
     }
 
-    void UpdateHapticLock()
+    public bool IsDrillLocked()
     {
-        if (!enableHapticLock || triggerLogic == null) return;
+        return enableOverheatSafety && isSafetyLocked;
+    }
 
-        if (currentHeat >= hotColorThreshold && !isFlexionLocked)
+    void UpdateSafetyLock()
+    {
+        if (!enableOverheatSafety) return;
+
+        if (currentHeat >= maxHeat && !isSafetyLocked)
         {
-            isFlexionLocked = true;
-            triggerLogic.endFlexion = lockedEndFlexion;
+            isSafetyLocked = true;
             
             if (enableDebugLogs)
             {
-                Debug.Log($"[DrillHeatSystem] 🔥 OVERHEATED! Flexion locked at {lockedEndFlexion}");
+                Debug.Log($"[DrillHeatSystem] 🚨 SAFETY ENGAGED! Drill at 100% heat, locked until cooled to {safetyResetThreshold}°");
             }
         }
-        else if (currentHeat < warmColorThreshold && isFlexionLocked)
+        else if (currentHeat <= safetyResetThreshold && isSafetyLocked)
         {
-            isFlexionLocked = false;
-            triggerLogic.endFlexion = normalEndFlexion;
+            isSafetyLocked = false;
             
             if (enableDebugLogs)
             {
-                Debug.Log($"[DrillHeatSystem] ❄️ Cooled down. Flexion restored to {normalEndFlexion}");
+                Debug.Log($"[DrillHeatSystem] ✅ SAFETY RELEASED! Drill operational again.");
             }
         }
     }
 
+    void UpdateFingerLock()
+    {
+        if (!enableFingerLock) return;
+
+        if (internalGlove == null && hapticGlove != null)
+        {
+            internalGlove = (SGCore.HapticGlove)hapticGlove.InternalGlove;
+        }
+
+        if (internalGlove == null || !internalGlove.IsConnected()) return;
+
+        float lockForce = 0f;
+
+        if (currentHeat >= warmColorThreshold)
+        {
+            float heatRange = maxHeat - warmColorThreshold;
+            float heatAboveWarm = currentHeat - warmColorThreshold;
+            lockForce = Mathf.Clamp01(heatAboveWarm / heatRange) * indexFingerLockForce;
+
+            if (lockForce >= indexFingerLockForce && !isFingerLocked)
+            {
+                isFingerLocked = true;
+                
+                if (enableDebugLogs)
+                {
+                    Debug.Log($"[DrillHeatSystem] 🔒 INDEX FINGER FULLY LOCKED! Heat at {currentHeat:F1}°, force at maximum.");
+                }
+            }
+        }
+        else
+        {
+            lockForce = 0f;
+            
+            if (isFingerLocked)
+            {
+                isFingerLocked = false;
+                
+                if (enableDebugLogs)
+                {
+                    Debug.Log($"[DrillHeatSystem] 🔓 INDEX FINGER RELEASED! Cooled to {currentHeat:F1}°, finger unlocked.");
+                }
+            }
+        }
+
+        float[] ffb = new float[5];
+        ffb[1] = lockForce;
+
+        internalGlove.QueueFFBLevels(ffb);
+        internalGlove.SendHaptics();
+    }
+
+    void OnDisable()
+    {
+        ReleaseFingerLock();
+    }
+
     void OnDestroy()
     {
+        ReleaseFingerLock();
+        
         if (drillBitMaterial != null && hasEmission)
         {
             drillBitMaterial.SetColor("_EmissionColor", originalEmissionColor);
+        }
+    }
+
+    void OnApplicationQuit()
+    {
+        ReleaseFingerLock();
+    }
+
+    void ReleaseFingerLock()
+    {
+        if (internalGlove != null && internalGlove.IsConnected())
+        {
+            float[] ffb = new float[5];
+            internalGlove.QueueFFBLevels(ffb);
+            internalGlove.SendHaptics();
+            internalGlove.StopHaptics();
         }
     }
 }

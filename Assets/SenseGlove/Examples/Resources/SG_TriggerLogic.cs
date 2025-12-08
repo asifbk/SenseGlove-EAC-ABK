@@ -1,4 +1,4 @@
-﻿﻿using UnityEngine;
+using UnityEngine;
 using SG;
 using SGCore;
 using System.Linq;
@@ -9,7 +9,7 @@ public class SG_TriggerLogic : MonoBehaviour
     public enum RotationAxis { X, Y, Z }
     public enum DrillAxis { Forward, Backward, Up, Down, Right, Left }
 
-    // --------------- REFERENCES -----------------
+    // ---------------- REFERENCES -----------------
     [Header("SenseGlove Settings")]
     public SG_Grabable grabable;
     public Finger respondsTo = Finger.Index;
@@ -18,6 +18,9 @@ public class SG_TriggerLogic : MonoBehaviour
     [Range(0, 1)] public float startFlexion = 0.2f;
     [Range(0, 1)] public float endFlexion = 0.8f;
     private float latestPressure = 0f;
+
+    [Header("Safety Systems")]
+    public DrillHeatSystem heatSystem;
 
     // ---------------- ROTATION -----------------
     [Header("Drill Rotation Settings")]
@@ -63,6 +66,11 @@ public class SG_TriggerLogic : MonoBehaviour
         if (autoDetectDrillSize && drillTip != null)
         {
             DetectDrillSize();
+        }
+
+        if (heatSystem == null)
+        {
+            heatSystem = GetComponent<DrillHeatSystem>();
         }
     }
 
@@ -186,9 +194,17 @@ public class SG_TriggerLogic : MonoBehaviour
         if (hand.GetNormalizedFlexion(out flexions))
         {
             float currFlex = flexions[(int)respondsTo];
-            latestPressure = Mathf.InverseLerp(startFlexion, endFlexion, currFlex);
+            float rawPressure = Mathf.InverseLerp(startFlexion, endFlexion, currFlex);
 
-            // Only send FFB, no vibration
+            if (heatSystem != null && heatSystem.IsDrillLocked())
+            {
+                latestPressure = 0f;
+            }
+            else
+            {
+                latestPressure = rawPressure;
+            }
+
             if (latestPressure > 0.05f)
             {
                 grabable.QueueFFBCmd(Finger.Index, latestPressure);

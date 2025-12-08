@@ -1,0 +1,529 @@
+═══════════════════════════════════════════════════════════════════════
+UPDATED DRILL HEAT SYSTEM - COMPLETE GUIDE
+═══════════════════════════════════════════════════════════════════════
+
+✨ NEW FEATURES:
+═══════════════════════════════════════════════════════════════════════
+
+1. ✅ Heat visual effects START from warm color threshold (50%)
+2. ✅ At 100% heat → Machine stops + Index finger LOCKS at 0 flexion
+3. ✅ Cooled to warm → Index finger RELEASES and works normally
+4. ✅ Manual temperature control from Inspector
+
+
+═══════════════════════════════════════════════════════════════════════
+HOW IT WORKS
+═══════════════════════════════════════════════════════════════════════
+
+HEAT STAGES:
+────────────────────────────────────────────────────────────────────────
+
+Stage 1: COLD (0% - 50%)
+    Visual:  NO glow, NO emission
+    Finger:  ✅ FREE (normal operation)
+    Drill:   ✅ WORKS
+
+Stage 2: WARM (50% - 99%)
+    Visual:  🟠 ORANGE glow starts appearing
+    Finger:  ✅ FREE (normal operation)
+    Drill:   ✅ WORKS
+    Effects: Glow intensity increases gradually
+
+Stage 3: MAXIMUM HOT (100%)
+    Visual:  🔴 RED hot, maximum glow, smoke
+    Finger:  🔒 LOCKED at 0 flexion (can't bend index)
+    Drill:   ❌ STOPPED (safety locked)
+    Effects: Full visual feedback
+
+Stage 4: COOLING DOWN (99% → 50%)
+    Visual:  🔴 RED → 🟠 ORANGE transition
+    Finger:  🔒 STILL LOCKED (waiting for cooldown)
+    Drill:   ❌ STILL STOPPED
+
+Stage 5: COOLED TO WARM (At 50%)
+    Visual:  🟠 ORANGE warm glow
+    Finger:  🔓 RELEASED! (can bend again)
+    Drill:   ✅ WORKS AGAIN!
+
+
+═══════════════════════════════════════════════════════════════════════
+VISUAL TIMELINE
+═══════════════════════════════════════════════════════════════════════
+
+Time   Heat   Visual          Finger        Drill      What You Feel
+────────────────────────────────────────────────────────────────────────
+0s     0%     Dark/Cold       🔓 Free       ✅ Works   Normal trigger
+10s    25%    Dark/Cold       🔓 Free       ✅ Works   Normal trigger
+15s    50%    🟠 Glow starts  🔓 Free       ✅ Works   Normal trigger
+18s    75%    🟠 Brighter     🔓 Free       ✅ Works   Normal trigger
+20s    100%   🔴 RED MAX!     🔒 LOCKED!    ❌ STOP!   Finger STUCK!
+                ↓
+        Index finger is PHYSICALLY LOCKED by SenseGlove!
+        Can't bend finger even if you try!
+                ↓
+25s    85%    🔴 Still hot    🔒 LOCKED     ❌ STOP    Still stuck
+30s    70%    🔴 Cooling      🔒 LOCKED     ❌ STOP    Still stuck
+35s    55%    🟠 Warm         🔒 LOCKED     ❌ STOP    Still stuck
+37s    50%    🟠 Warm         🔓 RELEASED!  ✅ WORKS!  Finger FREE!
+                ↑
+        Finger released! Can bend normally again!
+        Drill works!
+
+
+═══════════════════════════════════════════════════════════════════════
+INSPECTOR SETTINGS
+═══════════════════════════════════════════════════════════════════════
+
+DrillHeatSystem Component:
+────────────────────────────────────────────────────────────────────────
+
+[Heat Settings]
+Current Heat: 0               ← Real-time heat level
+Max Heat: 100                 ← Maximum heat (100%)
+Heat Increase Rate: 5         ← Auto-calculated from Time To Max Heat
+Cool Down Rate: 3             ← How fast it cools (% per second)
+Warm Color Threshold: 50      ← When glow STARTS + unlock threshold
+Hot Color Threshold: 90       ← (No longer used for locking)
+
+[Manual Temperature Control]  ⭐ NEW!
+☐ Enable Manual Heat Control  ← Check to manually set heat
+Manual Heat Value: 0          ← Drag slider to test heat levels
+Time To Max Heat: 20          ← Seconds to reach 100% when drilling
+
+
+[Overheat Safety]
+☑ Enable Overheat Safety      ← Master toggle for safety system
+Safety Reset Threshold: 50    ← Heat level to unlock (WARM)
+
+[SenseGlove Finger Lock]      ⭐ NEW!
+☑ Enable Finger Lock          ← Toggle finger locking
+Tracked Hand: None            ← Auto-detected from grabable
+Index Finger Lock Force: 1    ← Lock strength (0-1, max = 1)
+
+
+RECOMMENDED SETTINGS:
+────────────────────────────────────────────────────────────────────────
+Warm Color Threshold: 50      ← Visual effects start here
+Safety Reset Threshold: 50    ← Unlock when cooled here
+Cool Down Rate: 3             ← 30+ seconds to cool from 100 to 50
+Time To Max Heat: 20          ← 20 seconds of drilling = overheat
+
+
+═══════════════════════════════════════════════════════════════════════
+MANUAL TEMPERATURE CONTROL
+═══════════════════════════════════════════════════════════════════════
+
+TESTING IN EDITOR:
+────────────────────────────────────────────────────────────────────────
+
+1. Enter Play Mode
+2. Select DummyDrill-Rigged
+3. Find DrillHeatSystem component
+4. ☑ Enable Manual Heat Control
+5. Drag "Manual Heat Value" slider:
+
+   Slider at 0:    No glow, finger free
+   Slider at 50:   🟠 Glow starts, finger free
+   Slider at 75:   🟠 Brighter glow, finger free
+   Slider at 100:  🔴 Red hot, 🔒 FINGER LOCKED!
+   Slider at 49:   🔓 FINGER RELEASED!
+
+
+ADJUST HEATING TIME:
+────────────────────────────────────────────────────────────────────────
+
+"Time To Max Heat" = 20 seconds (default)
+    → Drilling continuously for 20s = 100% heat
+
+"Time To Max Heat" = 10 seconds
+    → Faster heating, overheat in 10s
+
+"Time To Max Heat" = 40 seconds
+    → Slower heating, overheat in 40s
+
+Heat Increase Rate is AUTO-CALCULATED:
+    heatIncreaseRate = 100 / timeToMaxHeat
+
+
+═══════════════════════════════════════════════════════════════════════
+SENSGLOVE INTEGRATION
+═══════════════════════════════════════════════════════════════════════
+
+HOW FINGER LOCKING WORKS:
+────────────────────────────────────────────────────────────────────────
+
+The system uses SenseGlove's Force Feedback (FFB) API to PHYSICALLY
+lock the index finger at 0 flexion (straight position):
+
+1. At 100% heat:
+   → Sends FFB command: indexFinger = 1.0 (full force)
+   → Physically prevents finger from bending
+   → User CANNOT bend finger even if they try
+
+2. At 50% heat (cooled down):
+   → Sends FFB command: indexFinger = 0.0 (no force)
+   → Releases finger
+   → User can bend finger normally again
+
+
+FFB ARRAY STRUCTURE:
+────────────────────────────────────────────────────────────────────────
+
+float[] ffb = new float[5];
+// [0] = Thumb      (not used)
+// [1] = Index      ← LOCKED when overheated
+// [2] = Middle     (not used)
+// [3] = Ring       (not used)
+// [4] = Pinky      (not used)
+
+When locked:     ffb[1] = 1.0  (full lock force)
+When unlocked:   ffb[1] = 0.0  (no force)
+
+
+AUTO-DETECTION:
+────────────────────────────────────────────────────────────────────────
+
+The system automatically finds the SenseGlove hand:
+
+1. Checks "Tracked Hand" reference in Inspector
+2. If not set, looks for hand from SG_Grabable
+3. Gets SG_HapticGlove component
+4. Gets internal SGCore.HapticGlove for FFB
+
+If detection fails, check debug logs:
+    "Initialized. TrackedHand: True, HapticGlove: True" ✅ Good!
+    "Initialized. TrackedHand: False, HapticGlove: False" ❌ Problem!
+
+
+═══════════════════════════════════════════════════════════════════════
+VISUAL EFFECTS - WARM COLOR START
+═══════════════════════════════════════════════════════════════════════
+
+NEW BEHAVIOR:
+────────────────────────────────────────────────────────────────────────
+
+Heat 0% → 49%:
+    Glow Intensity:  0 (OFF)
+    Glow Color:      Cool color (no visible effect)
+    Emission:        OFF
+
+Heat 50%:
+    Glow Intensity:  Starts at 0
+    Glow Color:      🟠 WARM (orange)
+    Emission:        Starts glowing
+
+Heat 50% → 100%:
+    Glow Intensity:  0 → Max (gradually increases)
+    Glow Color:      🟠 WARM → 🔴 HOT (orange to red)
+    Emission:        Gradually brighter
+
+
+CALCULATION:
+────────────────────────────────────────────────────────────────────────
+
+heatPercent = currentHeat / maxHeat
+warmPercent = warmColorThreshold / maxHeat  (50/100 = 0.5)
+
+if (currentHeat < warmColorThreshold):
+    NO VISUAL EFFECTS
+    
+else:
+    adjustedPercent = (heatPercent - warmPercent) / (1 - warmPercent)
+    → This remaps 50-100% heat to 0-100% visual intensity
+    
+    Glow: 0 → maxGlowIntensity
+    Color: warmColor → hotColor
+
+
+═══════════════════════════════════════════════════════════════════════
+CODE IMPLEMENTATION
+═══════════════════════════════════════════════════════════════════════
+
+KEY METHODS:
+────────────────────────────────────────────────────────────────────────
+
+UpdateSafetyLock()
+    - Checks if heat >= 100% → Lock drill
+    - Checks if heat <= 50% → Unlock drill
+
+UpdateFingerLock()
+    - Checks if heat >= 100% → Lock index finger (FFB = 1.0)
+    - Checks if heat <= 50% → Release index finger (FFB = 0.0)
+    - Sends FFB commands to SenseGlove
+
+UpdateVisualEffects()
+    - Shows NO glow below warmColorThreshold (50%)
+    - Shows glow from warmColor to hotColor (50% → 100%)
+    - Adjusts intensity based on heat level
+
+
+FINGER LOCK CODE:
+────────────────────────────────────────────────────────────────────────
+
+void UpdateFingerLock()
+{
+    if (!enableFingerLock) return;
+    
+    // Get internal glove if not cached
+    if (internalGlove == null && hapticGlove != null)
+        internalGlove = (SGCore.HapticGlove)hapticGlove.InternalGlove;
+    
+    if (internalGlove == null || !internalGlove.IsConnected()) return;
+    
+    // Lock at 100% heat
+    if (currentHeat >= maxHeat && !isFingerLocked)
+    {
+        isFingerLocked = true;
+        Debug.Log("🔒 INDEX FINGER LOCKED!");
+    }
+    // Unlock at 50% heat (warm threshold)
+    else if (currentHeat <= safetyResetThreshold && isFingerLocked)
+    {
+        isFingerLocked = false;
+        Debug.Log("🔓 INDEX FINGER RELEASED!");
+    }
+    
+    // Apply force feedback
+    float[] ffb = new float[5];
+    if (isFingerLocked)
+        ffb[1] = indexFingerLockForce;  // Lock index
+    else
+        ffb[1] = 0f;  // Release index
+    
+    internalGlove.QueueFFBLevels(ffb);
+    internalGlove.SendHaptics();
+}
+
+
+CLEANUP ON EXIT:
+────────────────────────────────────────────────────────────────────────
+
+void ReleaseFingerLock()
+{
+    if (internalGlove != null && internalGlove.IsConnected())
+    {
+        float[] ffb = new float[5];  // All zeros
+        internalGlove.QueueFFBLevels(ffb);
+        internalGlove.SendHaptics();
+        internalGlove.StopHaptics();
+    }
+}
+
+Called on:
+- OnDisable()
+- OnDestroy()
+- OnApplicationQuit()
+
+
+═══════════════════════════════════════════════════════════════════════
+USER EXPERIENCE
+═══════════════════════════════════════════════════════════════════════
+
+WHAT USER FEELS:
+────────────────────────────────────────────────────────────────────────
+
+Normal Drilling (0-50%):
+    👁️  No visual changes
+    ✋  Trigger works normally
+    🎮  Full control
+
+Heating Up (50-99%):
+    👁️  Drill starts glowing orange → red
+    ✋  Trigger still works
+    🎮  Full control, but visual warning!
+    💡  "It's getting hot, better stop soon..."
+
+OVERHEAT! (100%):
+    👁️  🔴 RED hot drill, smoke!
+    ✋  Index finger STUCK! Can't bend!
+    🎮  Trigger doesn't respond
+    💡  "Oh no! It's too hot! Can't use it!"
+    ⚠️  PHYSICAL FEEDBACK from glove!
+
+Cooling Down (100% → 50%):
+    👁️  Red glow gradually fades to orange
+    ✋  Finger still stuck (waiting...)
+    🎮  Can't use drill yet
+    💡  "Waiting for it to cool..."
+
+Cooled Down (At 50%):
+    👁️  🟠 Orange warm glow
+    ✋  Finger suddenly RELEASES!
+    🎮  Trigger works again!
+    💡  "Ah, I can move my finger! Let's drill!"
+
+
+REALISTIC SENSATION:
+────────────────────────────────────────────────────────────────────────
+
+✅ Finger physically prevented from bending
+✅ Must wait for cooldown (no shortcuts!)
+✅ Clear visual + haptic feedback
+✅ Mimics real tool thermal protection
+✅ Teaches proper tool usage habits
+
+
+═══════════════════════════════════════════════════════════════════════
+TESTING GUIDE
+═══════════════════════════════════════════════════════════════════════
+
+TEST 1: Visual Effects Start at 50%
+────────────────────────────────────────────────────────────────────────
+1. Enter Play Mode
+2. Enable Manual Heat Control
+3. Drag slider 0 → 49%    → ✅ Should see NO glow
+4. Drag slider to 50%     → ✅ Should see orange glow START
+5. Drag slider 50 → 100%  → ✅ Should see glow increase to red
+
+
+TEST 2: Finger Lock at 100%
+────────────────────────────────────────────────────────────────────────
+1. Grab drill with SenseGlove
+2. Enable Manual Heat Control
+3. Set slider to 100%
+4. ✅ Finger should LOCK (can't bend index)
+5. Console: "🔒 INDEX FINGER LOCKED!"
+6. Try to bend finger → ❌ Should resist!
+
+
+TEST 3: Finger Release at 50%
+────────────────────────────────────────────────────────────────────────
+1. With finger locked (heat = 100%)
+2. Drag slider down to 50%
+3. ✅ Finger should RELEASE immediately
+4. Console: "🔓 INDEX FINGER RELEASED!"
+5. Try to bend finger → ✅ Should work normally
+
+
+TEST 4: Natural Heating Cycle
+────────────────────────────────────────────────────────────────────────
+1. Disable Manual Heat Control
+2. Grab drill and squeeze trigger
+3. Hold trigger for 20 seconds
+4. Watch heat go 0 → 50 (glow starts) → 100 (finger locks!)
+5. Release trigger
+6. Wait ~17 seconds for cooldown 100 → 50
+7. Finger should release at 50%
+8. Squeeze trigger → Should work again!
+
+
+TEST 5: Time To Max Heat
+────────────────────────────────────────────────────────────────────────
+1. Set Time To Max Heat: 10 seconds
+2. Drill continuously
+3. ✅ Should overheat in 10 seconds
+4. Set Time To Max Heat: 40 seconds
+5. ✅ Should take 40 seconds to overheat
+
+
+═══════════════════════════════════════════════════════════════════════
+DEBUG LOGS
+═══════════════════════════════════════════════════════════════════════
+
+☑ Enable Debug Logs to see:
+────────────────────────────────────────────────────────────────────────
+
+Initialization:
+    [DrillHeatSystem] Initialized. TrackedHand: True, HapticGlove: True
+
+During Operation:
+    [DrillHeatSystem] Pressure: 0.85, isDrilling: True, Heat: 45.2, 
+                      SafetyLocked: False, FingerLocked: False
+    
+When Overheated:
+    [DrillHeatSystem] 🚨 SAFETY ENGAGED! Drill at 100% heat
+    [DrillHeatSystem] 🔒 INDEX FINGER LOCKED! Heat at 100%
+    
+When Cooled:
+    [DrillHeatSystem] ✅ SAFETY RELEASED! Drill operational again.
+    [DrillHeatSystem] 🔓 INDEX FINGER RELEASED! Cooled to 50°
+
+
+═══════════════════════════════════════════════════════════════════════
+TROUBLESHOOTING
+═══════════════════════════════════════════════════════════════════════
+
+FINGER DOESN'T LOCK:
+────────────────────────────────────────────────────────────────────────
+□ Check "Enable Finger Lock" is enabled
+□ Check SenseGlove is connected
+□ Check drill is grabbed
+□ Enable debug logs, look for "TrackedHand: True"
+□ Check "Index Finger Lock Force" is 1.0 (not 0)
+
+
+GLOW APPEARS TOO EARLY:
+────────────────────────────────────────────────────────────────────────
+□ Check "Warm Color Threshold" = 50
+□ The new code only shows glow >= 50%
+
+
+FINGER DOESN'T RELEASE:
+────────────────────────────────────────────────────────────────────────
+□ Check heat cooled to exactly 50% or below
+□ Check "Safety Reset Threshold" = 50
+□ Enable debug logs, look for "FINGER RELEASED" message
+□ Wait full cooldown time (~17 seconds from 100% to 50%)
+
+
+HEATING TOO FAST/SLOW:
+────────────────────────────────────────────────────────────────────────
+□ Adjust "Time To Max Heat" in Inspector
+□ Increase for slower heating
+□ Decrease for faster heating
+
+
+═══════════════════════════════════════════════════════════════════════
+SUMMARY OF CHANGES
+═══════════════════════════════════════════════════════════════════════
+
+✅ Visual effects START from warm color (50%)
+    - No glow below 50%
+    - Orange glow starts at 50%
+    - Red hot at 100%
+
+✅ Machine STOPS at 100% heat
+    - Safety lock engages
+    - Drill won't work
+
+✅ Index finger LOCKS at 100% heat
+    - Uses SenseGlove FFB
+    - Physically prevents bending
+    - Force = 1.0 (full lock)
+
+✅ Finger RELEASES at warm threshold (50%)
+    - FFB released (force = 0.0)
+    - Normal operation restored
+
+✅ Manual temperature control
+    - Toggle in Inspector
+    - Slider for testing
+    - Adjust heating time
+
+✅ Auto heat rate calculation
+    - Based on "Time To Max Heat"
+    - Consistent heating curve
+
+
+═══════════════════════════════════════════════════════════════════════
+TECHNICAL NOTES
+═══════════════════════════════════════════════════════════════════════
+
+Dependencies:
+    - SenseGlove SDK (SG namespace)
+    - SGCore.HapticGlove API
+
+Safety Features:
+    - Dual lock: Safety (drill) + Finger (glove)
+    - Auto-release on disable/destroy/quit
+    - Hysteresis: Lock at 100%, unlock at 50%
+
+Performance:
+    - FFB updated every frame
+    - Minimal overhead (simple array)
+    - Auto-detection only in Start()
+
+
+═══════════════════════════════════════════════════════════════════════
+
+The drill heat system is now COMPLETE with realistic haptic feedback! 🔥🔒✨
