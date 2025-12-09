@@ -53,7 +53,8 @@ public class DrillHeatSystem : MonoBehaviour
     [Header("SenseGlove Finger Lock")]
     public bool enableFingerLock = true;
     public SG_TrackedHand trackedHand;
-    [Range(0f, 1f)] public float indexFingerLockForce = 1f;
+    [Tooltip("Force feedback level for index finger lock (0 = no force, 100 = maximum force)")]
+    [Range(0, 100)] public int indexFingerLockForce = 100;
 
     [Header("Battery Integration")]
     public DrillBatterySystem batterySystem;
@@ -450,41 +451,27 @@ public class DrillHeatSystem : MonoBehaviour
 
         if (internalGlove == null || !internalGlove.IsConnected()) return;
 
-        float lockForce = 0f;
-
-        if (currentHeat >= warmColorThreshold)
+        if (currentHeat >= hotColorThreshold && !isFingerLocked)
         {
-            float heatRange = maxHeat - warmColorThreshold;
-            float heatAboveWarm = currentHeat - warmColorThreshold;
-            lockForce = Mathf.Clamp01(heatAboveWarm / heatRange) * indexFingerLockForce;
-
-            if (lockForce >= indexFingerLockForce && !isFingerLocked)
+            isFingerLocked = true;
+            
+            if (enableDebugLogs)
             {
-                isFingerLocked = true;
-                
-                if (enableDebugLogs)
-                {
-                    Debug.Log($"[DrillHeatSystem] 🔒 INDEX FINGER FULLY LOCKED! Heat at {currentHeat:F1}°, force at maximum.");
-                }
+                Debug.Log($"[DrillHeatSystem] 🔒 INDEX FINGER LOCKED! Heat reached {hotColorThreshold}° (hot threshold). Force: {indexFingerLockForce}%");
             }
         }
-        else
+        else if (currentHeat < hotColorThreshold && isFingerLocked)
         {
-            lockForce = 0f;
+            isFingerLocked = false;
             
-            if (isFingerLocked)
+            if (enableDebugLogs)
             {
-                isFingerLocked = false;
-                
-                if (enableDebugLogs)
-                {
-                    Debug.Log($"[DrillHeatSystem] 🔓 INDEX FINGER RELEASED! Cooled to {currentHeat:F1}°, finger unlocked.");
-                }
+                Debug.Log($"[DrillHeatSystem] 🔓 INDEX FINGER RELEASED! Cooled below {hotColorThreshold}°.");
             }
         }
 
         float[] ffb = new float[5];
-        ffb[1] = lockForce;
+        ffb[1] = isFingerLocked ? (indexFingerLockForce / 100f) : 0f;
 
         internalGlove.QueueFFBLevels(ffb);
         internalGlove.SendHaptics();
