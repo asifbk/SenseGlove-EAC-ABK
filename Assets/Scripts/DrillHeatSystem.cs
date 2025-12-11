@@ -34,8 +34,9 @@ public class DrillHeatSystem : MonoBehaviour
     public Color hotColor = new Color(1f, 0.1f, 0f, 1f);
     public float maxGlowIntensity = 3f;
 
-    [Header("Material Emission")]
-    public bool useEmissionGlow = true;
+    [Header("Material Color Override")]
+    public bool useColorOverride = true;
+    public string colorPropertyName = "_Color";
     public float maxEmissionIntensity = 2f;
     
     [Header("Audio")]
@@ -66,13 +67,18 @@ public class DrillHeatSystem : MonoBehaviour
     private bool isBurning = false;
     private bool isFingerLocked = false;
     private bool isSafetyLocked = false;
+    private bool lastFFBState = false; // Track last FFB state to avoid repeated sends
     private Material drillBitMaterial;
+    private Material[] drillBitMaterials;
+    private Color originalColor;
     private Color originalEmissionColor;
     private bool hasEmission = false;
+    private bool hasColorProperty = false;
     private Vector3 smokeParticlesOriginalOffset;
     private Vector3 burningSmellParticlesOriginalOffset;
     private Quaternion smokeParticlesOriginalRotation;
     private Quaternion burningSmellParticlesOriginalRotation;
+    private Transform lastDrillBitTip;
 
     void Start()
     {
@@ -124,13 +130,22 @@ public class DrillHeatSystem : MonoBehaviour
 
         if (drillBitRenderer != null && drillBitRenderer.materials.Length > materialIndex)
         {
-            drillBitMaterial = drillBitRenderer.materials[materialIndex];
+            drillBitMaterials = drillBitRenderer.materials;
+            drillBitMaterial = drillBitMaterials[materialIndex];
             
             if (drillBitMaterial.HasProperty("_EmissionColor"))
             {
                 hasEmission = true;
                 originalEmissionColor = drillBitMaterial.GetColor("_EmissionColor");
             }
+            
+            if (drillBitMaterial.HasProperty(colorPropertyName))
+            {
+                hasColorProperty = true;
+                originalColor = drillBitMaterial.GetColor(colorPropertyName);
+            }
+            
+            drillBitRenderer.materials = drillBitMaterials;
         }
 
         if (drillBitGlow == null && drillBitTip != null)
@@ -221,7 +236,7 @@ public class DrillHeatSystem : MonoBehaviour
 
     void UpdateDrillBitReferences()
     {
-        if (drillBitTip != null)
+        if (drillBitTip != null && drillBitTip != lastDrillBitTip)
         {
             ResetPreviousMaterial();
 
@@ -229,16 +244,33 @@ public class DrillHeatSystem : MonoBehaviour
             
             if (drillBitRenderer != null && drillBitRenderer.materials.Length > materialIndex)
             {
-                drillBitMaterial = drillBitRenderer.materials[materialIndex];
+                drillBitMaterials = drillBitRenderer.materials;
+                drillBitMaterial = drillBitMaterials[materialIndex];
+                
+                hasEmission = false;
+                hasColorProperty = false;
                 
                 if (drillBitMaterial.HasProperty("_EmissionColor"))
                 {
                     hasEmission = true;
                     originalEmissionColor = drillBitMaterial.GetColor("_EmissionColor");
                 }
-                else
+                
+                if (drillBitMaterial.HasProperty(colorPropertyName))
                 {
-                    hasEmission = false;
+                    hasColorProperty = true;
+                    originalColor = drillBitMaterial.GetColor(colorPropertyName);
+                }
+                
+                drillBitRenderer.materials = drillBitMaterials;
+                
+                if (enableDebugLogs)
+                {
+                    Debug.Log($"<color=lime>[DrillHeatSystem] ✓ New drill bit detected: {drillBitTip.name}</color>\n" +
+                              $"  Shader: {drillBitMaterial.shader.name}\n" +
+                              $"  Has _EmissionColor: {hasEmission}\n" +
+                              $"  Has {colorPropertyName}: {hasColorProperty}\n" +
+                              $"  Original Color: {(hasColorProperty ? originalColor.ToString() : "N/A")}");
                 }
             }
 
@@ -265,18 +297,25 @@ public class DrillHeatSystem : MonoBehaviour
                 }
             }
 
-            if (enableDebugLogs)
-            {
-                Debug.Log($"[DrillHeatSystem] Switched to drill bit: {drillBitTip.name}");
-            }
+            lastDrillBitTip = drillBitTip;
         }
     }
 
     void ResetPreviousMaterial()
     {
-        if (drillBitMaterial != null && hasEmission)
+        if (drillBitMaterial != null && drillBitRenderer != null)
         {
-            drillBitMaterial.SetColor("_EmissionColor", originalEmissionColor);
+            if (hasEmission)
+            {
+                drillBitMaterial.SetColor("_EmissionColor", originalEmissionColor);
+            }
+            
+            if (hasColorProperty)
+            {
+                drillBitMaterial.SetColor(colorPropertyName, originalColor);
+            }
+            
+            drillBitRenderer.materials = drillBitMaterials;
         }
     }
 
@@ -304,30 +343,42 @@ public class DrillHeatSystem : MonoBehaviour
             }
         }
 
-        if (useEmissionGlow && hasEmission && drillBitMaterial != null)
+        if (useColorOverride && drillBitMaterial != null && drillBitRenderer != null)
         {
-            Color emissionColor;
-            float emissionIntensity;
+            Color targetColor;
             
             if (currentHeat < warmColorThreshold)
             {
-                emissionColor = originalEmissionColor;
-                emissionIntensity = 0f;
+                targetColor = originalColor;
             }
             else
             {
                 float adjustedPercent = (heatPercent - warmPercent) / (1f - warmPercent);
                 
                 if (adjustedPercent < 0.5f)
-                    emissionColor = Color.Lerp(warmColor, hotColor, adjustedPercent * 2f);
+                    targetColor = Color.Lerp(warmColor, hotColor, adjustedPercent * 2f);
                 else
-                    emissionColor = hotColor;
-                    
-                emissionIntensity = Mathf.Lerp(0, maxEmissionIntensity, adjustedPercent);
+                    targetColor = hotColor;
             }
 
-            drillBitMaterial.SetColor("_EmissionColor", emissionColor * emissionIntensity);
-            drillBitMaterial.EnableKeyword("_EMISSION");
+            if (hasEmission)
+            {
+                float emissionIntensity = currentHeat < warmColorThreshold ? 0f : ((heatPercent - warmPercent) / (1f - warmPercent));
+                drillBitMaterial.SetColor("_EmissionColor", targetColor * emissionIntensity * maxEmissionIntensity);
+                drillBitMaterial.EnableKeyword("_EMISSION");
+            }
+            
+            if (hasColorProperty)
+            {
+                drillBitMaterial.SetColor(colorPropertyName, targetColor);
+                
+                if (enableDebugLogs && Time.frameCount % 60 == 0)
+                {
+                    Debug.Log($"<color=orange>[Heat Visual] Setting {colorPropertyName} to {targetColor} (Heat: {currentHeat:F1}°C)</color>");
+                }
+            }
+            
+            drillBitRenderer.materials = drillBitMaterials;
         }
     }
 
@@ -416,6 +467,11 @@ public class DrillHeatSystem : MonoBehaviour
         return enableOverheatSafety && isSafetyLocked;
     }
 
+    public bool IsFingerLocked()
+    {
+        return enableFingerLock && isFingerLocked;
+    }
+
     void UpdateSafetyLock()
     {
         if (!enableOverheatSafety) return;
@@ -442,39 +498,127 @@ public class DrillHeatSystem : MonoBehaviour
 
     void UpdateFingerLock()
     {
-        if (!enableFingerLock) return;
+        if (!enableFingerLock)
+        {
+            if (enableDebugLogs && Time.frameCount % 120 == 0)
+            {
+                Debug.Log("[DrillHeatSystem] Finger lock disabled in settings.");
+            }
+            return;
+        }
 
+        // Try to get HapticGlove if not assigned
+        if (hapticGlove == null && trackedHand != null)
+        {
+            hapticGlove = trackedHand.GetComponent<SG_HapticGlove>();
+            
+            if (enableDebugLogs && hapticGlove != null)
+            {
+                Debug.Log($"<color=cyan>[DrillHeatSystem] ✓ HapticGlove acquired from TrackedHand!</color>");
+            }
+        }
+
+        // Get internal glove reference
         if (internalGlove == null && hapticGlove != null)
         {
             internalGlove = (SGCore.HapticGlove)hapticGlove.InternalGlove;
+            
+            if (enableDebugLogs && internalGlove != null)
+            {
+                Debug.Log($"<color=cyan>[DrillHeatSystem] ✓ Internal glove acquired! Type: {internalGlove.GetType().Name}</color>");
+            }
         }
 
-        if (internalGlove == null || !internalGlove.IsConnected()) return;
+        // Check if we have haptic glove
+        if (hapticGlove == null)
+        {
+            if (enableDebugLogs && Time.frameCount % 120 == 0)
+            {
+                Debug.LogWarning($"[DrillHeatSystem] HapticGlove is null! TrackedHand exists: {trackedHand != null}");
+            }
+            return;
+        }
 
-        if (currentHeat >= hotColorThreshold && !isFingerLocked)
+        // Check connection
+        if (internalGlove != null && !internalGlove.IsConnected())
+        {
+            if (enableDebugLogs && Time.frameCount % 120 == 0)
+            {
+                Debug.LogWarning($"[DrillHeatSystem] Glove not connected!");
+            }
+            return;
+        }
+
+        bool shouldLock = currentHeat >= hotColorThreshold;
+        
+        // Track state changes
+        if (shouldLock && !isFingerLocked)
         {
             isFingerLocked = true;
+            lastFFBState = false; // Reset to trigger send on next frame
             
             if (enableDebugLogs)
             {
-                Debug.Log($"[DrillHeatSystem] 🔒 INDEX FINGER LOCKED! Heat reached {hotColorThreshold}° (hot threshold). Force: {indexFingerLockForce}%");
+                Debug.Log($"<color=lime>[DrillHeatSystem] 🔒 INDEX FINGER LOCKED! Heat: {currentHeat:F1}°C >= {hotColorThreshold}°C. Force: {indexFingerLockForce}%</color>");
             }
         }
-        else if (currentHeat < hotColorThreshold && isFingerLocked)
+        else if (!shouldLock && isFingerLocked)
         {
             isFingerLocked = false;
+            lastFFBState = true; // Reset to trigger send on next frame
             
             if (enableDebugLogs)
             {
-                Debug.Log($"[DrillHeatSystem] 🔓 INDEX FINGER RELEASED! Cooled below {hotColorThreshold}°.");
+                Debug.Log($"<color=cyan>[DrillHeatSystem] 🔓 INDEX FINGER RELEASED! Heat: {currentHeat:F1}°C < {hotColorThreshold}°C</color>");
             }
         }
 
-        float[] ffb = new float[5];
-        ffb[1] = isFingerLocked ? (indexFingerLockForce / 100f) : 0f;
-
-        internalGlove.QueueFFBLevels(ffb);
-        internalGlove.SendHaptics();
+        // ========== FIXED: Only send FFB when state changes, not every frame ==========
+        bool currentFFBState = isFingerLocked;
+        
+        if (currentFFBState != lastFFBState)
+        {
+            // State changed - send FFB command ONCE
+            lastFFBState = currentFFBState;
+            
+            if (currentFFBState)
+            {
+                // LOCK THE FINGER
+                float forceLevel = indexFingerLockForce / 100f;
+                
+                hapticGlove.QueueFFBCmd(SGCore.Finger.Index, forceLevel);
+                
+                if (internalGlove != null && internalGlove.IsConnected())
+                {
+                    float[] ffb = new float[5];
+                    ffb[1] = forceLevel;
+                    internalGlove.QueueFFBLevels(ffb);
+                    internalGlove.SendHaptics();
+                }
+                
+                if (enableDebugLogs)
+                {
+                    Debug.Log($"<color=yellow>[Finger Lock] ⚡ SENDING LOCK COMMAND (force: {forceLevel:F2}) ⚡</color>");
+                }
+            }
+            else
+            {
+                // RELEASE THE FINGER
+                hapticGlove.QueueFFBCmd(SGCore.Finger.Index, 0f);
+                
+                if (internalGlove != null && internalGlove.IsConnected())
+                {
+                    float[] ffb = new float[5];
+                    internalGlove.QueueFFBLevels(ffb);
+                    internalGlove.SendHaptics();
+                }
+                
+                if (enableDebugLogs)
+                {
+                    Debug.Log($"<color=yellow>[Finger Lock] 🔓 SENDING RELEASE COMMAND 🔓</color>");
+                }
+            }
+        }
     }
 
     void OnDisable()
@@ -486,9 +630,19 @@ public class DrillHeatSystem : MonoBehaviour
     {
         ReleaseFingerLock();
         
-        if (drillBitMaterial != null && hasEmission)
+        if (drillBitMaterial != null && drillBitRenderer != null)
         {
-            drillBitMaterial.SetColor("_EmissionColor", originalEmissionColor);
+            if (hasEmission)
+            {
+                drillBitMaterial.SetColor("_EmissionColor", originalEmissionColor);
+            }
+            
+            if (hasColorProperty)
+            {
+                drillBitMaterial.SetColor(colorPropertyName, originalColor);
+            }
+            
+            drillBitRenderer.materials = drillBitMaterials;
         }
     }
 

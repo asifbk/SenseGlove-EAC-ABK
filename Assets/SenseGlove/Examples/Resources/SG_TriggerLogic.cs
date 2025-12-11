@@ -54,6 +54,9 @@ public class SG_TriggerLogic : MonoBehaviour
     public string woodTag = "Wood";
     public WoodDustGenerator dustGenerator;
 
+    [Header("Debug")]
+    public bool enableDebugLogs = false;
+
     // ---------------- PUBLIC ACCESSORS -----------------
     public float CurrentPressure => latestPressure;
     public bool IsTouchingWood => isTouchingWood;
@@ -84,6 +87,7 @@ public class SG_TriggerLogic : MonoBehaviour
         }
 
         UpdateTriggerPressure();
+        VerifyFingerLockStatus();
         HandleRotation();
         HandleCarving();
         HandleAudio();
@@ -185,7 +189,7 @@ public class SG_TriggerLogic : MonoBehaviour
     }
 
     // ---------------------------------------------------------
-    // FLEXION → PRESSURE (NO VIBRATION)
+    // FLEXION → PRESSURE (WITH HEAT LOCK PRIORITY)
     // ---------------------------------------------------------
     private void UpdateTriggerPressure()
     {
@@ -205,9 +209,61 @@ public class SG_TriggerLogic : MonoBehaviour
                 latestPressure = rawPressure;
             }
 
-            if (latestPressure > 0.05f)
+            // ========== FIXED: HEAT LOCK HAS PRIORITY ==========
+            // Check if finger is locked by heat system
+            bool fingerIsLockedByHeat = heatSystem != null && heatSystem.IsFingerLocked();
+            
+            if (fingerIsLockedByHeat)
             {
+                // HEAT SYSTEM HAS EXCLUSIVE CONTROL
+                // Send ZERO force to prevent trigger from interfering with lock
+                grabable.QueueFFBCmd(Finger.Index, 0f);
+                
+                if (enableDebugLogs && Time.frameCount % 60 == 0)
+                {
+                    Debug.Log($"<color=orange>[SG_TriggerLogic] 🔒 HEAT LOCK ACTIVE - Suppressing trigger FFB (rawPressure: {rawPressure:F2})</color>");
+                }
+            }
+            else if (latestPressure > 0.05f)
+            {
+                // NORMAL OPERATION: Send trigger-based FFB
                 grabable.QueueFFBCmd(Finger.Index, latestPressure);
+            }
+            else
+            {
+                // No pressure, no lock - release FFB
+                grabable.QueueFFBCmd(Finger.Index, 0f);
+            }
+        }
+    }
+
+    // ---------------------------------------------------------
+    // VERIFY FINGER LOCK STATUS (DEBUG)
+    // ---------------------------------------------------------
+    private void VerifyFingerLockStatus()
+    {
+        if (!enableDebugLogs || heatSystem == null) return;
+        if (Time.frameCount % 30 != 0) return; // Log every 30 frames (~2x per second at 60fps)
+        
+        bool shouldBeLocked = heatSystem.currentHeat >= heatSystem.hotColorThreshold;
+        bool isActuallyLocked = heatSystem.IsFingerLocked();
+        bool isDrillLocked = heatSystem.IsDrillLocked();
+        
+        // Only log if there's a mismatch or if actively locking
+        if (shouldBeLocked || isActuallyLocked || isDrillLocked)
+        {
+            Debug.Log($"<color=cyan>[Finger Lock Verification]</color>\n" +
+                     $"  Current Heat: {heatSystem.currentHeat:F1}°C / {heatSystem.maxHeat}°C\n" +
+                     $"  Hot Threshold: {heatSystem.hotColorThreshold}°C\n" +
+                     $"  Should Be Locked: {shouldBeLocked}\n" +
+                     $"  Actually Locked: {isActuallyLocked}\n" +
+                     $"  Drill Locked (Safety): {isDrillLocked}\n" +
+                     $"  Finger Lock Enabled: {heatSystem.enableFingerLock}\n" +
+                     $"  Latest Pressure: {latestPressure:F2}");
+            
+            if (shouldBeLocked != isActuallyLocked)
+            {
+                Debug.LogError($"<color=red>⚠️ STATE MISMATCH - Should lock but isn't!</color>");
             }
         }
     }
