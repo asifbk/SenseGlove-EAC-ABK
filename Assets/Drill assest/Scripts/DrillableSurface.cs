@@ -31,6 +31,8 @@ public class ExistingModelCarving : MonoBehaviour
     // *** NEW *** — cached drill collider
     private CapsuleCollider drillCollider;
     private Transform lastDrillBit;
+    
+    private DrillBitCompatibility drillBitCompatibility;
 
     void Start()
     {
@@ -44,6 +46,7 @@ public class ExistingModelCarving : MonoBehaviour
         {
             drillBit = bit;
             drillCollider = drillBit != null ? drillBit.GetComponent<CapsuleCollider>() : null;
+            drillBitCompatibility = drillBit != null ? drillBit.GetComponent<DrillBitCompatibility>() : null;
             lastDrillBit = bit;
             
             if (drillBit != null && drillCollider != null)
@@ -113,6 +116,11 @@ public class ExistingModelCarving : MonoBehaviour
         if (drillCollider == null)
         {
             Debug.LogWarning("[ExistingModelCarving] No drill collider found on drill bit.");
+            return;
+        }
+        
+        if (drillBitCompatibility != null && !drillBitCompatibility.IsCompatibleWith(gameObject))
+        {
             return;
         }
 

@@ -39,11 +39,6 @@ public class DrillHeatSystem : MonoBehaviour
     public string colorPropertyName = "_Color";
     public float maxEmissionIntensity = 2f;
     
-    [Header("Audio")]
-    public AudioSource heatAudioSource;
-    public AudioClip overheatingSound;
-    public AudioClip sizzleSound;
-
     [Header("Debug")]
     public bool enableDebugLogs = false;
 
@@ -56,6 +51,8 @@ public class DrillHeatSystem : MonoBehaviour
     public SG_TrackedHand trackedHand;
     [Tooltip("Force feedback level for index finger lock (0 = no force, 100 = maximum force)")]
     [Range(0, 100)] public int indexFingerLockForce = 100;
+    [Tooltip("Temperature at which finger lock releases (must be lower than lock temperature 100)")]
+    [Range(0, 100)] public float fingerLockReleaseThreshold = 70f;
 
     [Header("Battery Integration")]
     public DrillBatterySystem batterySystem;
@@ -231,7 +228,6 @@ public class DrillHeatSystem : MonoBehaviour
         UpdateFingerLock();
         UpdateVisualEffects();
         UpdateParticleEffects();
-        UpdateAudioEffects();
     }
 
     void UpdateDrillBitReferences()
@@ -425,28 +421,6 @@ public class DrillHeatSystem : MonoBehaviour
         }
     }
 
-    void UpdateAudioEffects()
-    {
-        if (heatAudioSource == null) return;
-
-        if (isOverheating && overheatingSound != null && !heatAudioSource.isPlaying)
-        {
-            heatAudioSource.clip = overheatingSound;
-            heatAudioSource.loop = true;
-            heatAudioSource.Play();
-        }
-        else if (!isOverheating && heatAudioSource.isPlaying && heatAudioSource.clip == overheatingSound)
-        {
-            heatAudioSource.Stop();
-        }
-
-        if (isBurning)
-        {
-            float volume = Mathf.Lerp(0.1f, 0.5f, (currentHeat - warmColorThreshold) / (maxHeat - warmColorThreshold));
-            heatAudioSource.volume = volume;
-        }
-    }
-
     public float GetHeatPercentage()
     {
         return currentHeat / maxHeat;
@@ -549,7 +523,7 @@ public class DrillHeatSystem : MonoBehaviour
             return;
         }
 
-        bool shouldLock = currentHeat >= hotColorThreshold;
+        bool shouldLock = currentHeat >= maxHeat; // Lock when heat reaches 100 (max)
         
         // Track state changes
         if (shouldLock && !isFingerLocked)
@@ -559,64 +533,64 @@ public class DrillHeatSystem : MonoBehaviour
             
             if (enableDebugLogs)
             {
-                Debug.Log($"<color=lime>[DrillHeatSystem] 🔒 INDEX FINGER LOCKED! Heat: {currentHeat:F1}°C >= {hotColorThreshold}°C. Force: {indexFingerLockForce}%</color>");
+                Debug.Log($"<color=lime>[DrillHeatSystem] 🔒 INDEX FINGER LOCKED! Heat: {currentHeat:F1}°C >= {maxHeat}°C. Force: {indexFingerLockForce}%</color>");
             }
         }
-        else if (!shouldLock && isFingerLocked)
+        else if (currentHeat <= fingerLockReleaseThreshold && isFingerLocked)
         {
             isFingerLocked = false;
             lastFFBState = true; // Reset to trigger send on next frame
             
             if (enableDebugLogs)
             {
-                Debug.Log($"<color=cyan>[DrillHeatSystem] 🔓 INDEX FINGER RELEASED! Heat: {currentHeat:F1}°C < {hotColorThreshold}°C</color>");
+                Debug.Log($"<color=cyan>[DrillHeatSystem] 🔓 INDEX FINGER RELEASED! Heat: {currentHeat:F1}°C <= {fingerLockReleaseThreshold}°C</color>");
             }
         }
 
-        // ========== FIXED: Only send FFB when state changes, not every frame ==========
-        bool currentFFBState = isFingerLocked;
-        
-        if (currentFFBState != lastFFBState)
+        // ========== CONTINUOUS Force Feedback: Send force every frame while locked ==========
+        // Track state changes for logging
+        if (isFingerLocked && !lastFFBState)
         {
-            // State changed - send FFB command ONCE
-            lastFFBState = currentFFBState;
-            
-            if (currentFFBState)
+            lastFFBState = true;
+            if (enableDebugLogs)
             {
-                // LOCK THE FINGER
-                float forceLevel = indexFingerLockForce / 100f;
-                
-                hapticGlove.QueueFFBCmd(SGCore.Finger.Index, forceLevel);
-                
-                if (internalGlove != null && internalGlove.IsConnected())
-                {
-                    float[] ffb = new float[5];
-                    ffb[1] = forceLevel;
-                    internalGlove.QueueFFBLevels(ffb);
-                    internalGlove.SendHaptics();
-                }
-                
-                if (enableDebugLogs)
-                {
-                    Debug.Log($"<color=yellow>[Finger Lock] ⚡ SENDING LOCK COMMAND (force: {forceLevel:F2}) ⚡</color>");
-                }
+                Debug.Log($"<color=lime>[Finger Lock] 🔒 LOCK ENGAGED - Continuous force {indexFingerLockForce}% applied</color>");
             }
-            else
+        }
+        else if (!isFingerLocked && lastFFBState)
+        {
+            lastFFBState = false;
+            if (enableDebugLogs)
             {
-                // RELEASE THE FINGER
-                hapticGlove.QueueFFBCmd(SGCore.Finger.Index, 0f);
-                
-                if (internalGlove != null && internalGlove.IsConnected())
-                {
-                    float[] ffb = new float[5];
-                    internalGlove.QueueFFBLevels(ffb);
-                    internalGlove.SendHaptics();
-                }
-                
-                if (enableDebugLogs)
-                {
-                    Debug.Log($"<color=yellow>[Finger Lock] 🔓 SENDING RELEASE COMMAND 🔓</color>");
-                }
+                Debug.Log($"<color=cyan>[Finger Lock] 🔓 LOCK RELEASED - Force removed</color>");
+            }
+        }
+        
+        // SEND FORCE EVERY FRAME while locked
+        if (isFingerLocked)
+        {
+            float forceLevel = indexFingerLockForce / 100f;
+            
+            hapticGlove.QueueFFBCmd(SGCore.Finger.Index, forceLevel);
+            
+            if (internalGlove != null && internalGlove.IsConnected())
+            {
+                float[] ffb = new float[5];
+                ffb[1] = forceLevel; // Index finger is at position 1
+                internalGlove.QueueFFBLevels(ffb);
+                internalGlove.SendHaptics();
+            }
+        }
+        else
+        {
+            // RELEASE: Send zero force every frame to ensure complete release
+            hapticGlove.QueueFFBCmd(SGCore.Finger.Index, 0f);
+            
+            if (internalGlove != null && internalGlove.IsConnected())
+            {
+                float[] ffb = new float[5];
+                internalGlove.QueueFFBLevels(ffb);
+                internalGlove.SendHaptics();
             }
         }
     }
