@@ -35,7 +35,9 @@ public class BLK : MonoBehaviour
 
     void Start()
     {
-        StartCoroutine(CaptureAndSend("http://eac-st-22:8000/caption"));
+        // StartCoroutine(CaptureAndSend("http://eac-st-22:8000/caption"));
+        StartCoroutine(CaptureAndSend("http://144.167.236.60:8000/caption"));
+
     }
 
     IEnumerator CaptureAndSend(string apiUrl)
@@ -88,6 +90,11 @@ public class BLK : MonoBehaviour
                 AttachedBit = attached_bit,
                 BitRpm = bit_rpm
             };
+
+            Debug.Log("Sending snapshot to API with DrillState: " +
+                      "State=" + drillState.State +
+                      ", AttachedBit=" + drillState.AttachedBit +
+                      ", BitRpm=" + drillState.BitRpm);
 
             yield return LLMSnapshot.SendToAPI(apiUrl, imageBytes, drillState, response =>
             {

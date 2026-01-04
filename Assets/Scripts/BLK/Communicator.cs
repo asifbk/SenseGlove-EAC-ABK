@@ -1,6 +1,8 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 using System.Collections;
+using Valve.VR.InteractionSystem;
+using Unity.VisualScripting;
 
 public class Communicator : MonoBehaviour
 {
@@ -15,6 +17,7 @@ public class Communicator : MonoBehaviour
 
     public BLK blkScript; // Assign in inspector
     public SG_TriggerLogic triggerLogic; // Assign in inspector
+    public AudioSource warningSound; // Assign in inspector
 
 
     void Start()
@@ -30,6 +33,10 @@ public class Communicator : MonoBehaviour
     {
         Debug.Log("VLM Triggered Callback: " + response.trigger + " | Feedback: " + response.feedback);
         // Additional logic based on VLM response can be added here
+        if (response.trigger == true && !warningSound.isPlaying){
+            warningSound.Play();}
+        else if (response.trigger == false && warningSound.isPlaying){
+            warningSound.Stop();}
     }
 
     void Update()
