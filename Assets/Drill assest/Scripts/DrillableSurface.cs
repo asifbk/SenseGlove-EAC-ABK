@@ -46,7 +46,21 @@ public class ExistingModelCarving : MonoBehaviour
         {
             drillBit = bit;
             drillCollider = drillBit != null ? drillBit.GetComponent<CapsuleCollider>() : null;
-            drillBitCompatibility = drillBit != null ? drillBit.GetComponent<DrillBitCompatibility>() : null;
+            
+            if (drillBit != null)
+            {
+                drillBitCompatibility = drillBit.GetComponent<DrillBitCompatibility>();
+                
+                if (drillBitCompatibility == null && drillBit.parent != null)
+                {
+                    drillBitCompatibility = drillBit.parent.GetComponent<DrillBitCompatibility>();
+                }
+            }
+            else
+            {
+                drillBitCompatibility = null;
+            }
+            
             lastDrillBit = bit;
             
             if (drillBit != null && drillCollider != null)
@@ -119,9 +133,18 @@ public class ExistingModelCarving : MonoBehaviour
             return;
         }
         
-        if (drillBitCompatibility != null && !drillBitCompatibility.IsCompatibleWith(gameObject))
+        if (drillBitCompatibility != null)
         {
-            return;
+            bool compatible = drillBitCompatibility.IsCompatibleWith(gameObject);
+            if (!compatible)
+            {
+                Debug.Log($"<color=orange>[{gameObject.name}] Carving BLOCKED by compatibility check</color>");
+                return;
+            }
+        }
+        else
+        {
+            Debug.Log($"<color=yellow>[{gameObject.name}] No DrillBitCompatibility found on drill bit '{drillBit.name}' - allowing all drilling</color>");
         }
 
         Vector3 localPoint = transform.InverseTransformPoint(worldPosition);

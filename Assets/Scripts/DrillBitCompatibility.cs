@@ -17,21 +17,34 @@ public class DrillBitCompatibility : MonoBehaviour
     
     public bool IsCompatibleWith(GameObject material)
     {
+        Debug.LogWarning("DrillBitCompatibility: Checking compatibility with material: " + material.name);
         if (string.IsNullOrEmpty(compatibleMaterialTag))
         {
             return true;
         }
         
-        bool isCompatible = material.CompareTag(compatibleMaterialTag) || 
-                           material.layer == LayerMask.NameToLayer(compatibleMaterialTag);
+        string materialTag = material.tag;
+        string materialLayerName = LayerMask.LayerToName(material.layer);
+        
+        bool tagMatch = material.CompareTag(compatibleMaterialTag);
+        bool layerMatch = material.layer == LayerMask.NameToLayer(compatibleMaterialTag);
+        bool isCompatible = tagMatch || layerMatch;
         
         if (!isCompatible)
         {
             if (Time.time - lastIncompatibleWarningTime > warningDisplayDuration)
             {
-                Debug.LogWarning($"[{gameObject.name}] Cannot drill {material.name}! This drill bit is designed for {compatibleMaterialTag} only.");
+                Debug.LogWarning($"<color=red>[{gameObject.name}] ✗ Cannot drill {material.name}!</color>\n" +
+                                $"  This drill bit requires: '{compatibleMaterialTag}'\n" +
+                                $"  Material has tag: '{materialTag}' (Match: {tagMatch})\n" +
+                                $"  Material has layer: '{materialLayerName}' (Match: {layerMatch})");
                 lastIncompatibleWarningTime = Time.time;
             }
+        }
+        else
+        {
+            Debug.Log($"<color=green>[{gameObject.name}] ✓ Compatible with {material.name}</color>\n" +
+                     $"  Required: '{compatibleMaterialTag}' | Tag: '{materialTag}' | Layer: '{materialLayerName}'");
         }
         
         return isCompatible;
@@ -39,6 +52,7 @@ public class DrillBitCompatibility : MonoBehaviour
     
     public bool IsCompatibleWith(string materialTag, string materialLayer)
     {
+        Debug.LogWarning("DrillBitCompatibility: Checking compatibility with material tag: " + materialTag + " and layer: " + materialLayer);
         if (string.IsNullOrEmpty(compatibleMaterialTag))
         {
             return true;

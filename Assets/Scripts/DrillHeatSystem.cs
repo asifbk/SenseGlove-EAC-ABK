@@ -351,16 +351,20 @@ public class DrillHeatSystem : MonoBehaviour
             {
                 float adjustedPercent = (heatPercent - warmPercent) / (1f - warmPercent);
                 
+                Color heatColor;
                 if (adjustedPercent < 0.5f)
-                    targetColor = Color.Lerp(warmColor, hotColor, adjustedPercent * 2f);
+                    heatColor = Color.Lerp(warmColor, hotColor, adjustedPercent * 2f);
                 else
-                    targetColor = hotColor;
+                    heatColor = hotColor;
+                
+                targetColor = Color.Lerp(originalColor, heatColor, adjustedPercent);
             }
 
             if (hasEmission)
             {
                 float emissionIntensity = currentHeat < warmColorThreshold ? 0f : ((heatPercent - warmPercent) / (1f - warmPercent));
-                drillBitMaterial.SetColor("_EmissionColor", targetColor * emissionIntensity * maxEmissionIntensity);
+                Color emissionColor = currentHeat < warmColorThreshold ? originalEmissionColor : (currentHeat < hotColorThreshold ? warmColor : hotColor);
+                drillBitMaterial.SetColor("_EmissionColor", emissionColor * emissionIntensity * maxEmissionIntensity);
                 drillBitMaterial.EnableKeyword("_EMISSION");
             }
             
@@ -370,7 +374,7 @@ public class DrillHeatSystem : MonoBehaviour
                 
                 if (enableDebugLogs && Time.frameCount % 60 == 0)
                 {
-                    Debug.Log($"<color=orange>[Heat Visual] Setting {colorPropertyName} to {targetColor} (Heat: {currentHeat:F1}°C)</color>");
+                    Debug.Log($"<color=orange>[Heat Visual] Setting {colorPropertyName} to {targetColor} (Heat: {currentHeat:F1}°C, Original: {originalColor})</color>");
                 }
             }
             

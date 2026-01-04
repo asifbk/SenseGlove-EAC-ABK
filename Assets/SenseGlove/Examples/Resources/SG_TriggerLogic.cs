@@ -55,7 +55,7 @@ public class SG_TriggerLogic : MonoBehaviour
     public WoodDustGenerator dustGenerator;
 
     [Header("Debug")]
-    public bool enableDebugLogs = false;
+    public bool enableDebugLogs = true;
 
     // ---------------- PUBLIC ACCESSORS -----------------
     public float CurrentPressure => latestPressure;
@@ -121,8 +121,9 @@ public class SG_TriggerLogic : MonoBehaviour
         {
             foreach (Transform child in drillHolder)
             {
+                Debug.LogWarning("SG_TriggerLogic: Checking child: " + child.name);
                 string n = child.name.ToLower();
-                if (child.gameObject.activeInHierarchy && n.Contains("drill"))
+                if (child.gameObject.activeInHierarchy && n.Contains("bit"))
                 {
                     if (drillTip != child)
                     {
@@ -245,7 +246,7 @@ public class SG_TriggerLogic : MonoBehaviour
         if (!enableDebugLogs || heatSystem == null) return;
         if (Time.frameCount % 30 != 0) return; // Log every 30 frames (~2x per second at 60fps)
         
-        bool shouldBeLocked = heatSystem.currentHeat >= heatSystem.hotColorThreshold;
+        bool shouldBeLocked = heatSystem.currentHeat >= heatSystem.maxHeat;
         bool isActuallyLocked = heatSystem.IsFingerLocked();
         bool isDrillLocked = heatSystem.IsDrillLocked();
         
@@ -302,8 +303,16 @@ public class SG_TriggerLogic : MonoBehaviour
 
     private void HandleCarving()
     {
-        if (drillTip == null) return;
-        if (latestPressure < 0.1f) return;
+        if (drillTip == null)
+        {
+            if (enableDebugLogs) Debug.LogWarning("[SG_TriggerLogic] HandleCarving: drillTip is null");
+            return;
+        }
+        if (latestPressure < 0.1f)
+        {
+            if (enableDebugLogs) Debug.Log($"[SG_TriggerLogic] Pressure too low: {latestPressure}");
+            return;
+        }
 
         Vector3 dir = GetDrillDirection();
         Vector3 origin = drillTip.position + (dir * rayOffset);
@@ -314,10 +323,18 @@ public class SG_TriggerLogic : MonoBehaviour
             Physics.Raycast(origin, dir, out hit, rayDistance, carvableLayer) :
             Physics.Raycast(origin, dir, out hit, rayDistance);
 
-        if (didHit && hit.collider.transform.IsChildOf(transform)) return;
+        if (enableDebugLogs) Debug.Log($"[SG_TriggerLogic] Raycast result: {didHit} | Layer mask: {carvableLayer.value}");
+
+        if (didHit && hit.collider.transform.IsChildOf(transform))
+        {
+            if (enableDebugLogs) Debug.Log("[SG_TriggerLogic] Hit is child of drill - ignoring");
+            return;
+        }
 
         if (didHit)
         {
+            if (enableDebugLogs) Debug.Log($"[SG_TriggerLogic] Raycast HIT: {hit.collider.name} on layer {LayerMask.LayerToName(hit.collider.gameObject.layer)}");
+            
             ExistingModelCarving carvable = hit.collider.GetComponent<ExistingModelCarving>();
             if (carvable != null)
             {
@@ -325,6 +342,7 @@ public class SG_TriggerLogic : MonoBehaviour
                 {
                     lastDeformTime = Time.time;
                     float pressureMultiplier = Mathf.Lerp(0.3f, 1f, latestPressure);
+                    if (enableDebugLogs) Debug.Log($"[SG_TriggerLogic] Calling CarveAtPosition on {carvable.gameObject.name}");
                     carvable.SetDrillBit(drillTip);
                     carvable.CarveAtPosition(hit.point, drillRadius, carveSpeed * pressureMultiplier);
                     woodDustParticles.Emit(10);
@@ -332,14 +350,20 @@ public class SG_TriggerLogic : MonoBehaviour
                         dustGenerator.SpawnDust();
                     isTouchingWood = true;
                 }
+                else
+                {
+                    if (enableDebugLogs) Debug.Log($"[SG_TriggerLogic] Carving on cooldown. Time since last: {Time.time - lastDeformTime}");
+                }
             }
             else
             {
+                if (enableDebugLogs) Debug.LogWarning($"[SG_TriggerLogic] Hit {hit.collider.name} but no ExistingModelCarving component found");
                 isTouchingWood = false;
             }
         }
         else
         {
+            if (enableDebugLogs) Debug.Log("[SG_TriggerLogic] Raycast MISS");
             isTouchingWood = false;
         }
     }
@@ -350,12 +374,19 @@ public class SG_TriggerLogic : MonoBehaviour
     private void HandleAudio()
     {
         if (drillSound == null) return;
-        if (latestPressure > 0.1f && !drillSound.isPlaying)
+        
+        bool shouldPlay = latestPressure > 0.1f && IsGrabbed;
+        
+        if (shouldPlay && !drillSound.isPlaying)
             drillSound.Play();
-        else if (latestPressure <= 0.1f && drillSound.isPlaying)
+        else if (!shouldPlay && drillSound.isPlaying)
             drillSound.Stop();
-        drillSound.pitch = Mathf.Lerp(0.8f, 1.5f, latestPressure);
-        drillSound.volume = Mathf.Lerp(0.1f, 1.0f, latestPressure);
+            
+        if (shouldPlay)
+        {
+            drillSound.pitch = Mathf.Lerp(0.8f, 1.5f, latestPressure);
+            drillSound.volume = Mathf.Lerp(0.1f, 1.0f, latestPressure);
+        }
     }
 
     private void HandleParticles()
