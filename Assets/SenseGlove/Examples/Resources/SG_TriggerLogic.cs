@@ -28,7 +28,7 @@ public class SG_TriggerLogic : MonoBehaviour
     public RotationAxis rotationAxis = RotationAxis.X;
     public float maxRotationSpeed = 1200f;
     public float resistanceFactor = 0.4f;
-    private float currentRotationSpeed = 0f;
+    public float currentRotationSpeed = 0f;
     private bool isTouchingWood = false;
 
     // ---------------- CARVING / RAYCAST -----------------

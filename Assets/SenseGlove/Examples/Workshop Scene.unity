@@ -703,7 +703,7 @@ PrefabInstance:
       objectReference: {fileID: 2100000, guid: 6bb0646f945fbe54f8d856b346e6c2f3, type: 2}
     - target: {fileID: 919132149155446097, guid: 5adab32fc0d68304b9cf8eb455bbb349, type: 3}
       propertyPath: m_Name
-      value: Brad Point
+      value: Brad Point Bit
       objectReference: {fileID: 0}
     - target: {fileID: 919132149155446097, guid: 5adab32fc0d68304b9cf8eb455bbb349, type: 3}
       propertyPath: m_Layer
@@ -1435,7 +1435,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: a5f3265eb027f0e41af7b62f064343df, type: 2}
+  - {fileID: 2100000, guid: 5d9c6f3a74ae9384b9542139fee5ade7, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -1887,6 +1887,10 @@ PrefabInstance:
     - target: {fileID: 11489174, guid: 4d293c8e162f3874b982baadd71153d2, type: 3}
       propertyPath: vertices.Array.data[7].z
       value: 0.6500002
+      objectReference: {fileID: 0}
+    - target: {fileID: 1000014254142504, guid: 4d293c8e162f3874b982baadd71153d2, type: 3}
+      propertyPath: m_TagString
+      value: MainCamera
       objectReference: {fileID: 0}
     - target: {fileID: 4000013889601590, guid: 4d293c8e162f3874b982baadd71153d2, type: 3}
       propertyPath: m_LocalPosition.x
@@ -3326,6 +3330,7 @@ MonoBehaviour:
   rotationAxis: 1
   maxRotationSpeed: 10000
   resistanceFactor: 0.4
+  currentRotationSpeed: 0
   drillTip: {fileID: 861855493}
   autoFindActiveDrillBit: 1
   drillDirection: 0
@@ -4168,7 +4173,7 @@ PrefabInstance:
       objectReference: {fileID: 2100000, guid: 72713e21bb96f5a498e75d5dc580241a, type: 2}
     - target: {fileID: 919132149155446097, guid: 5adab32fc0d68304b9cf8eb455bbb349, type: 3}
       propertyPath: m_Name
-      value: 'HSS '
+      value: HSS Bit
       objectReference: {fileID: 0}
     - target: {fileID: 919132149155446097, guid: 5adab32fc0d68304b9cf8eb455bbb349, type: 3}
       propertyPath: m_Layer
@@ -9586,7 +9591,7 @@ PrefabInstance:
       objectReference: {fileID: -94599743854768342, guid: 90c9e6438ec56844bab86842983559bd, type: 3}
     - target: {fileID: 919132149155446097, guid: 5adab32fc0d68304b9cf8eb455bbb349, type: 3}
       propertyPath: m_Name
-      value: Masonry
+      value: Masonry Bit
       objectReference: {fileID: 0}
     - target: {fileID: 919132149155446097, guid: 5adab32fc0d68304b9cf8eb455bbb349, type: 3}
       propertyPath: m_Layer
@@ -9810,6 +9815,78 @@ MonoBehaviour:
   compatibleMaterialTag: Concrete
   incompatibleColor: {r: 1, g: 0.3, b: 0.3, a: 0.8}
   warningDisplayDuration: 2
+--- !u!1 &2074776289
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2074776291}
+  - component: {fileID: 2074776290}
+  - component: {fileID: 2074776292}
+  m_Layer: 0
+  m_Name: VLMCommunicator
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &2074776290
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2074776289}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2bb532d364aca8f4fb87bca705fa926e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  isInContact: 0
+  currentBit: None
+  bitRpm: 0
+  availableBits:
+  - {fileID: 2070581522}
+  - {fileID: 1919743042}
+  - {fileID: 243593895}
+  availableMaterials:
+  - {fileID: 1426984977}
+  - {fileID: 1871966164}
+  - {fileID: 730004158}
+  drillHolder: {fileID: 2032074876}
+  blkScript: {fileID: 2074776292}
+  triggerLogic: {fileID: 1745343735}
+  vlmOutput: 
+--- !u!4 &2074776291
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2074776289}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -2.296033, y: -1.382202, z: -2.500249}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &2074776292
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2074776289}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f818204a83e720b4ea1b36b100600a05, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!43 &2094920047
 Mesh:
   m_ObjectHideFlags: 0
@@ -14893,7 +14970,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 919132149155446097, guid: 5adab32fc0d68304b9cf8eb455bbb349, type: 3}
       propertyPath: m_IsActive
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 919132149155446097, guid: 5adab32fc0d68304b9cf8eb455bbb349, type: 3}
       propertyPath: m_TagString
@@ -33276,3 +33353,4 @@ SceneRoots:
   - {fileID: 8645203038055836119}
   - {fileID: 1902435978}
   - {fileID: 1375004218}
+  - {fileID: 2074776291}

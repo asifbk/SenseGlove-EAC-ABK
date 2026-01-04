@@ -22,9 +22,30 @@ Material:
   m_LockedProperties: 
   m_SavedProperties:
     serializedVersion: 3
-    m_TexEnvs: []
+    m_TexEnvs:
+    - _Albedo:
+        m_Texture: {fileID: 2800000, guid: 9ae39f2e8316a2246a5a4c3bf6c2ea36, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _Metallic:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1.49, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _Normal:
+        m_Texture: {fileID: 2800000, guid: be2f8d770f6be0d4fae301de933abab6, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _Smoothness:
+        m_Texture: {fileID: 2800000, guid: 9ae39f2e8316a2246a5a4c3bf6c2ea36, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
     m_Ints: []
-    m_Floats: []
+    m_Floats:
+    - _HeightDisplacement: 0.06
+    - _MetallicStrength: 0.24
+    - _NormalScale: 0.6
+    - _SmoothnessStrength: 2
     m_Colors:
     - _Color: {r: 0.5441177, g: 0.5441177, b: 0.5441177, a: 1}
+    - _ColorTint: {r: 1, g: 0.85574967, b: 0.6556604, a: 0}
   m_BuildTextureStacks: []
