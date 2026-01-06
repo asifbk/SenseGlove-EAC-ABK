@@ -49,10 +49,27 @@ public class DrillHeatSystem : MonoBehaviour
     [Header("SenseGlove Finger Lock")]
     public bool enableFingerLock = true;
     public SG_TrackedHand trackedHand;
-    [Tooltip("Force feedback level for index finger lock (0 = no force, 100 = maximum force)")]
-    [Range(0, 100)] public int indexFingerLockForce = 100;
+    
+    [Header("Lock Position Settings")]
+    [Tooltip("Flexion position to lock the finger at when overheated (0 = straight, 1 = fully bent)")]
+    [Range(0f, 1f)]
+    public float targetLockFlexion = 0.5f;
+    
+    [Tooltip("Maximum force to resist movement from target position (0-100%)")]
+    [Range(0, 100)]
+    public int lockForce = 100;
+    
+    [Tooltip("Flexion tolerance - creates a 'dead zone' around target position")]
+    [Range(0f, 0.2f)]
+    public float flexionTolerance = 0.05f;
+    
+    [Tooltip("Spring strength - how aggressively to return to target (higher = stronger)")]
+    [Range(1f, 5f)]
+    public float springStrength = 3f;
+    
     [Tooltip("Temperature at which finger lock releases (must be lower than lock temperature 100)")]
-    [Range(0, 100)] public float fingerLockReleaseThreshold = 70f;
+    [Range(0, 100)] 
+    public float fingerLockReleaseThreshold = 70f;
 
     [Header("Battery Integration")]
     public DrillBatterySystem batterySystem;
@@ -64,7 +81,7 @@ public class DrillHeatSystem : MonoBehaviour
     private bool isBurning = false;
     private bool isFingerLocked = false;
     private bool isSafetyLocked = false;
-    private bool lastFFBState = false; // Track last FFB state to avoid repeated sends
+    private bool lastFFBState = false;
     private Material drillBitMaterial;
     private Material[] drillBitMaterials;
     private Color originalColor;
@@ -170,10 +187,22 @@ public class DrillHeatSystem : MonoBehaviour
             burningSmellParticlesOriginalOffset = burningSmellParticles.transform.localPosition;
             burningSmellParticlesOriginalRotation = burningSmellParticles.transform.localRotation;
         }
+
+        // Diagnostic call for haptic setup
+        if (enableDebugLogs)
+        {
+            Invoke("DiagnoseHapticSystem", 1f);
+        }
     }
 
     void Update()
     {
+        // DEBUG: Press 'F' to test force feedback
+        if (Input.GetKeyDown(KeyCode.F))
+        {
+            TestForceFeeback();
+        }
+
         if (enableManualHeatControl)
         {
             currentHeat = manualHeatValue;
@@ -485,6 +514,21 @@ public class DrillHeatSystem : MonoBehaviour
             return;
         }
 
+        // ===== INITIALIZATION PHASE =====
+        // Try to get TrackedHand if not assigned
+        if (trackedHand == null && triggerLogic != null && triggerLogic.grabable != null)
+        {
+            var grabbingScripts = triggerLogic.grabable.ScriptsGrabbingMe();
+            if (grabbingScripts.Count > 0)
+            {
+                trackedHand = grabbingScripts[0].TrackedHand;
+                if (enableDebugLogs && trackedHand != null)
+                {
+                    Debug.Log($"<color=cyan>[DrillHeatSystem] ✓ TrackedHand acquired from grabable!</color>");
+                }
+            }
+        }
+
         // Try to get HapticGlove if not assigned
         if (hapticGlove == null && trackedHand != null)
         {
@@ -499,26 +543,60 @@ public class DrillHeatSystem : MonoBehaviour
         // Get internal glove reference
         if (internalGlove == null && hapticGlove != null)
         {
-            internalGlove = (SGCore.HapticGlove)hapticGlove.InternalGlove;
-            
-            if (enableDebugLogs && internalGlove != null)
+            try
             {
-                Debug.Log($"<color=cyan>[DrillHeatSystem] ✓ Internal glove acquired! Type: {internalGlove.GetType().Name}</color>");
+                internalGlove = (SGCore.HapticGlove)hapticGlove.InternalGlove;
+                
+                if (enableDebugLogs && internalGlove != null)
+                {
+                    Debug.Log($"<color=cyan>[DrillHeatSystem] ✓ Internal glove acquired! Type: {internalGlove.GetType().Name}</color>");
+                }
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogError($"[DrillHeatSystem] Failed to cast InternalGlove: {e.Message}");
+                internalGlove = null;
             }
         }
 
-        // Check if we have haptic glove
-        if (hapticGlove == null)
+        // ===== VALIDATION PHASE =====
+        if (trackedHand == null)
         {
             if (enableDebugLogs && Time.frameCount % 120 == 0)
             {
-                Debug.LogWarning($"[DrillHeatSystem] HapticGlove is null! TrackedHand exists: {trackedHand != null}");
+                Debug.LogWarning($"[DrillHeatSystem] TrackedHand is null!");
             }
             return;
         }
 
-        // Check connection
-        if (internalGlove != null && !internalGlove.IsConnected())
+        if (!trackedHand.IsConnected())
+        {
+            if (enableDebugLogs && Time.frameCount % 120 == 0)
+            {
+                Debug.LogWarning($"[DrillHeatSystem] TrackedHand not connected!");
+            }
+            return;
+        }
+
+        if (hapticGlove == null)
+        {
+            if (enableDebugLogs && Time.frameCount % 120 == 0)
+            {
+                Debug.LogWarning($"[DrillHeatSystem] HapticGlove is null!");
+            }
+            return;
+        }
+
+        if (internalGlove == null)
+        {
+            if (enableDebugLogs && Time.frameCount % 120 == 0)
+            {
+                Debug.LogWarning($"[DrillHeatSystem] Internal glove is null!");
+            }
+            return;
+        }
+
+        if (!internalGlove.IsConnected())
         {
             if (enableDebugLogs && Time.frameCount % 120 == 0)
             {
@@ -527,23 +605,27 @@ public class DrillHeatSystem : MonoBehaviour
             return;
         }
 
-        bool shouldLock = currentHeat >= maxHeat; // Lock when heat reaches 100 (max)
+        // ===== LOCK/UNLOCK LOGIC =====
+        bool shouldLock = currentHeat >= maxHeat;
         
-        // Track state changes
+        // DEBUG: Log state every frame to see what's happening
+        if (enableDebugLogs && Time.frameCount % 10 == 0)
+        {
+            Debug.Log($"[Lock Logic] Heat: {currentHeat:F1}/{maxHeat} | shouldLock: {shouldLock} | isFingerLocked: {isFingerLocked} | ReleaseThreshold: {fingerLockReleaseThreshold}");
+        }
+        
         if (shouldLock && !isFingerLocked)
         {
             isFingerLocked = true;
-            lastFFBState = false; // Reset to trigger send on next frame
             
             if (enableDebugLogs)
             {
-                Debug.Log($"<color=lime>[DrillHeatSystem] 🔒 INDEX FINGER LOCKED! Heat: {currentHeat:F1}°C >= {maxHeat}°C. Force: {indexFingerLockForce}%</color>");
+                Debug.Log($"<color=lime>[DrillHeatSystem] 🔒 INDEX FINGER LOCKED at position {targetLockFlexion:F2}! Heat: {currentHeat:F1}°C >= {maxHeat}°C</color>");
             }
         }
         else if (currentHeat <= fingerLockReleaseThreshold && isFingerLocked)
         {
             isFingerLocked = false;
-            lastFFBState = true; // Reset to trigger send on next frame
             
             if (enableDebugLogs)
             {
@@ -551,52 +633,197 @@ public class DrillHeatSystem : MonoBehaviour
             }
         }
 
-        // ========== CONTINUOUS Force Feedback: Send force every frame while locked ==========
-        // Track state changes for logging
-        if (isFingerLocked && !lastFFBState)
+        // ===== POSITION-BASED FORCE FEEDBACK =====
+        // Lock finger at a specific flexion position using proportional force
+        try
         {
-            lastFFBState = true;
-            if (enableDebugLogs)
+            float indexForce = 0f;
+            
+            if (isFingerLocked)
             {
-                Debug.Log($"<color=lime>[Finger Lock] 🔒 LOCK ENGAGED - Continuous force {indexFingerLockForce}% applied</color>");
+                // Get current index finger flexion
+                if (trackedHand.GetNormalizedFlexion(out float[] flexions) && flexions.Length > 1)
+                {
+                    float currentFlexion = flexions[1]; // Index finger
+                    float flexionError = currentFlexion - targetLockFlexion;
+                    
+                    // Only apply force if outside tolerance zone
+                    if (Mathf.Abs(flexionError) > flexionTolerance)
+                    {
+                        // Proportional force based on distance from target
+                        // Creates a "spring" effect that pulls finger to target position
+                        float proportionalForce = Mathf.Abs(flexionError) * springStrength;
+                        
+                        // Scale by max force setting and clamp
+                        indexForce = Mathf.Clamp01(proportionalForce) * (lockForce / 100f);
+                        
+                        if (enableDebugLogs && Time.frameCount % 30 == 0)
+                        {
+                            Debug.Log($"<color=yellow>[Position Lock] Current: {currentFlexion:F2} | Target: {targetLockFlexion:F2} | " +
+                                     $"Error: {flexionError:F3} | Force: {indexForce:P0}</color>");
+                        }
+                    }
+                    else
+                    {
+                        // Within tolerance - no force needed
+                        indexForce = 0f;
+                        
+                        if (enableDebugLogs && Time.frameCount % 90 == 0)
+                        {
+                            Debug.Log($"<color=lime>[Position Lock] ✓ At target ({currentFlexion:F2} ≈ {targetLockFlexion:F2})</color>");
+                        }
+                    }
+                }
+                else
+                {
+                    // Can't read flexion - use constant force as fallback
+                    indexForce = lockForce / 100f;
+                    
+                    if (enableDebugLogs && Time.frameCount % 60 == 0)
+                    {
+                        Debug.LogWarning($"[Position Lock] Can't read flexion - using constant {lockForce}%");
+                    }
+                }
+            }
+            
+            // Create force array
+            float[] ffb = new float[5];
+            ffb[0] = 0f;        // Thumb
+            ffb[1] = indexForce; // Index - position-locked when overheated
+            ffb[2] = 0f;        // Middle
+            ffb[3] = 0f;        // Ring
+            ffb[4] = 0f;        // Pinky
+            
+            // CRITICAL: Use ONLY the internal glove method, not the wrapper
+            internalGlove.QueueFFBLevels(ffb);
+            internalGlove.SendHaptics();
+            
+            // Send haptics
+            internalGlove.QueueFFBLevels(ffb);
+            internalGlove.SendHaptics();
+            
+            if (enableDebugLogs && Time.frameCount % 60 == 0)
+            {
+                string lockStatus = isFingerLocked ? "🔒 LOCKED" : "🔓 RELEASED";
+                Debug.Log($"<color=lime>[Finger Lock] {lockStatus} - Heat: {currentHeat:F1}° | Force: {indexForce:P0}</color>");
             }
         }
-        else if (!isFingerLocked && lastFFBState)
+        catch (System.Exception e)
         {
-            lastFFBState = false;
-            if (enableDebugLogs)
-            {
-                Debug.Log($"<color=cyan>[Finger Lock] 🔓 LOCK RELEASED - Force removed</color>");
-            }
+            Debug.LogError($"[DrillHeatSystem] Haptic feedback error: {e.Message}\n{e.StackTrace}");
+        }
+    }
+
+    void DiagnoseHapticSystem()
+    {
+        Debug.Log("\n========== HAPTIC SYSTEM FULL DIAGNOSIS ==========\n");
+        
+        // 1. Check TrackedHand
+        if (trackedHand == null)
+        {
+            Debug.LogError("❌ TrackedHand is NULL! Cannot proceed.");
+            return;
+        }
+        Debug.Log($"✓ TrackedHand found: {trackedHand.name}");
+        Debug.Log($"  Hand type: {trackedHand.GetType().Name}");
+        
+        // 2. Check if hand is connected
+        bool handConnected = trackedHand.IsConnected();
+        Debug.Log(handConnected ? "✓ TrackedHand IS CONNECTED" : "❌ TrackedHand NOT CONNECTED");
+        
+        if (!handConnected)
+        {
+            Debug.LogError("The hand tracker itself is not connected. Check your hand tracking system.");
+            return;
         }
         
-        // SEND FORCE EVERY FRAME while locked
-        if (isFingerLocked)
+        // 3. Check HapticGlove wrapper
+        if (hapticGlove == null)
         {
-            float forceLevel = indexFingerLockForce / 100f;
-            
-            hapticGlove.QueueFFBCmd(SGCore.Finger.Index, forceLevel);
-            
-            if (internalGlove != null && internalGlove.IsConnected())
+            Debug.LogError("❌ HapticGlove component not found on TrackedHand!");
+            Debug.Log("Available components on TrackedHand:");
+            foreach (var comp in trackedHand.GetComponents<Component>())
             {
-                float[] ffb = new float[5];
-                ffb[1] = forceLevel; // Index finger is at position 1
-                internalGlove.QueueFFBLevels(ffb);
-                internalGlove.SendHaptics();
+                Debug.Log($"  - {comp.GetType().Name}");
+            }
+            return;
+        }
+        Debug.Log($"✓ HapticGlove wrapper found: {hapticGlove.GetType().Name}");
+        
+        // 4. Check internal glove
+        if (internalGlove == null)
+        {
+            Debug.LogError("❌ Internal glove is NULL!");
+            return;
+        }
+        Debug.Log($"✓ Internal glove found: {internalGlove.GetType().Name}");
+        
+        // 5. Check glove connection
+        bool gloveConnected = internalGlove.IsConnected();
+        if (!gloveConnected)
+        {
+            Debug.LogError("❌ GLOVE IS NOT CONNECTED!");
+            Debug.LogError("This is the root cause - the physical glove device is not communicating.");
+            Debug.LogError("CHECK:");
+            Debug.LogError("  1. Is the glove powered ON?");
+            Debug.LogError("  2. Is the USB cable connected?");
+            Debug.LogError("  3. Is the glove recognized in Device Manager?");
+            Debug.LogError("  4. Try unplugging and reconnecting the glove.");
+            return;
+        }
+        Debug.Log("✓ Glove IS CONNECTED");
+        
+        // 6. Try to get flexion data (important test)
+        Debug.Log("\n--- Testing Hand Input ---");
+        if (trackedHand.GetNormalizedFlexion(out float[] flexions))
+        {
+            Debug.Log("✓ Hand flexion data available:");
+            for (int i = 0; i < flexions.Length && i < 5; i++)
+            {
+                string[] fingerNames = { "Thumb", "Index", "Middle", "Ring", "Pinky" };
+                Debug.Log($"  {fingerNames[i]}: {flexions[i]:F2}");
             }
         }
         else
         {
-            // RELEASE: Send zero force every frame to ensure complete release
-            hapticGlove.QueueFFBCmd(SGCore.Finger.Index, 0f);
-            
-            if (internalGlove != null && internalGlove.IsConnected())
-            {
-                float[] ffb = new float[5];
-                internalGlove.QueueFFBLevels(ffb);
-                internalGlove.SendHaptics();
-            }
+            Debug.LogError("❌ Cannot read hand flexion data!");
         }
+        
+        // 7. Test force feedback
+        Debug.Log("\n--- Testing Force Feedback ---");
+        try
+        {
+            Debug.Log("Sending test forces to each finger...");
+            
+            string[] fingerNames = { "Thumb", "Index", "Middle", "Ring", "Pinky" };
+            
+            for (int i = 0; i < 5; i++)
+            {
+                float[] testFFB = new float[5];
+                testFFB[i] = 1f;
+                
+                internalGlove.QueueFFBLevels(testFFB);
+                internalGlove.SendHaptics();
+                
+                Debug.Log($"✓ Sending 100% force to {fingerNames[i]}...");
+                Debug.Log($"  FFB array: [{testFFB[0]}, {testFFB[1]}, {testFFB[2]}, {testFFB[3]}, {testFFB[4]}]");
+                
+                System.Threading.Thread.Sleep(500); // Wait 500ms between tests
+            }
+            
+            Debug.Log("\n✓ Force feedback test completed");
+            Debug.Log("DID YOU FEEL FORCE ON YOUR FINGERS?");
+            Debug.Log("  - If YES for all: System is fully functional!");
+            Debug.Log("  - If YES for some: Only certain fingers work (hardware issue)");
+            Debug.Log("  - If NO: Glove is connected but not receiving force (firmware issue)");
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError($"❌ Force feedback test failed: {e.Message}");
+            Debug.LogError($"Stack trace: {e.StackTrace}");
+        }
+        
+        Debug.Log("\n========== END DIAGNOSIS ==========\n");
     }
 
     void OnDisable()
@@ -633,10 +860,68 @@ public class DrillHeatSystem : MonoBehaviour
     {
         if (internalGlove != null && internalGlove.IsConnected())
         {
-            float[] ffb = new float[5];
-            internalGlove.QueueFFBLevels(ffb);
-            internalGlove.SendHaptics();
-            internalGlove.StopHaptics();
+            try
+            {
+                float[] ffb = new float[5]; // All zeros
+                internalGlove.QueueFFBLevels(ffb);
+                internalGlove.SendHaptics();
+                internalGlove.StopHaptics();
+                
+                if (enableDebugLogs)
+                {
+                    Debug.Log("[DrillHeatSystem] Finger lock released on shutdown.");
+                }
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogError($"[DrillHeatSystem] Error releasing finger lock: {e.Message}");
+            }
         }
+    }
+
+    void TestForceFeeback()
+    {
+        if (internalGlove == null || !internalGlove.IsConnected())
+        {
+            Debug.LogError("Cannot test - glove not connected!");
+            return;
+        }
+
+        Debug.Log("\n========== TESTING FORCE FEEDBACK ==========");
+        Debug.Log("Testing each finger individually...\n");
+
+        string[] fingerNames = { "THUMB", "INDEX", "MIDDLE", "RING", "PINKY" };
+
+        for (int i = 0; i < 5; i++)
+        {
+            try
+            {
+                float[] ffb = new float[5];
+                ffb[i] = 1f; // 100% force
+
+                internalGlove.QueueFFBLevels(ffb);
+                internalGlove.SendHaptics();
+
+                Debug.Log($"🔴 {fingerNames[i]} - Sending 100% force. Do you feel it?");
+                
+                // Wait 2 seconds
+                for (int wait = 0; wait < 20; wait++)
+                {
+                    System.Threading.Thread.Sleep(100);
+                }
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogError($"Error testing {fingerNames[i]}: {e.Message}");
+            }
+        }
+
+        // Release all
+        float[] releaseFFB = new float[5];
+        internalGlove.QueueFFBLevels(releaseFFB);
+        internalGlove.SendHaptics();
+
+        Debug.Log("\n========== TEST COMPLETE ==========");
+        Debug.Log("Which fingers did you feel force on?");
     }
 }

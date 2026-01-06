@@ -59,7 +59,7 @@ Material:
     - _OcclusionStrength: 1
     - _Parallax: 0.02
     - _QueueOffset: -6
-    - _Smoothness: 0.875
+    - _Smoothness: 0.136
     - _SpecularHighlights: 1
     - _Surface: 0
     - _ZWrite: 1

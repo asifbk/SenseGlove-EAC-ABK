@@ -217,13 +217,12 @@ public class SG_TriggerLogic : MonoBehaviour
             if (fingerIsLockedByHeat)
             {
                 // HEAT SYSTEM HAS EXCLUSIVE CONTROL
-                // Send ZERO force to prevent trigger from interfering with lock
-                grabable.QueueFFBCmd(Finger.Index, 0f);
-                
+                // DO NOT send any FFB commands - let heat system control the finger completely
                 if (enableDebugLogs && Time.frameCount % 60 == 0)
                 {
-                    Debug.Log($"<color=orange>[SG_TriggerLogic] 🔒 HEAT LOCK ACTIVE - Suppressing trigger FFB (rawPressure: {rawPressure:F2})</color>");
+                    Debug.Log($"<color=orange>[SG_TriggerLogic] 🔒 HEAT LOCK ACTIVE - Skipping all trigger FFB (rawPressure: {rawPressure:F2})</color>");
                 }
+                // Exit early - don't queue any FFB commands
             }
             else if (latestPressure > 0.05f)
             {
